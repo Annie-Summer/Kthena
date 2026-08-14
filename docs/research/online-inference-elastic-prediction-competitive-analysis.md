@@ -1,6 +1,6 @@
 # 在线推理弹性预测：友商调研与方案对比
 
-> 调研范围：公有云托管推理平台 + 云原生弹性层（可与推理产品联动）  
+> 调研范围：公有云托管推理平台 + 云原生弹性层（可与推理产品联动）+ 推理框架控制面（NVIDIA Dynamo Planner）  
 > 资料来源：各厂商公开文档 / 产品页 / 技术博客（截至 2026-08）  
 > 适用对象：云计算厂商规划「在线推理弹性预测」能力时的竞品对标与方案选型
 
@@ -296,10 +296,58 @@ AHPA 把两通路写进产品语义（`proactive` / `reactive` / `auto`）；AWS
 
 | 方案 | 弹性特点 | 与「预测」关系 |
 | --- | --- | --- |
+| **NVIDIA Dynamo Planner** | 专为 LLM 推理设计的扩缩控制器：按 **TTFT/ITL SLA** 决策；支持 Prefill/Decode **分角色独立扩缩**；可用 profiling / AI Configurator / 在线 FPM 建引擎性能模型 | **真 L3+L4**：吞吐模式可用 ARIMA/Prophet 等做流量预测并算最少 P/D 副本；负载模式用实时 ForwardPassMetrics 做短周期反应式兜底（默认可约 180s 预测周期 + 5s 负载周期） |
 | KServe + Knative KPA | 并发/RPS、Scale-to-Zero、Panic 窗口 | 反应式为主；冷启动仍是痛点 |
 | KServe Standard + HPA/KEDA | CPU/自定义指标 | 可外挂预测控制器 |
 | Ray Serve Autoscaler | 队列/副本自动 | 偏反应式；可接外部预测 API |
 | 学术/系统方案（SageServe、FlashServe 等） | ARIMA / Prophet-LSTM 等预测预热 | 证明 L3+冷启动优化对 LLM 必要，产品化仍分散 |
+
+#### 2.3.1 NVIDIA Dynamo Planner（重点补齐）
+
+> 定位提醒：Dynamo **不是公有云托管推理控制台**，而是开源/可私有化的 **分布式 LLM 推理运行时控制面组件**。对云厂商做在线推理弹性预测，它是「引擎层该长什么样」的强对标，而不是和 SageMaker/EAS 同一售卖形态。
+
+**它解决什么**
+
+- 传统 HPA 看 CPU/GPU 利用率，和 LLM 尾延迟（TTFT、ITL/TPOT）相关性弱。
+- Prefill 与 Decode 忙闲曲线不同，需要**分开扩缩**。
+- 需要把「流量预测 + 引擎性能模型 + SLA 目标」合在一个控制器里。
+
+**优化目标（optimization_target）**
+
+| 目标 | 含义 | 是否要显式 SLA | 是否要 profiling |
+| --- | --- | --- | --- |
+| `throughput`（默认） | 按队列深度、KV 利用率等阈值扩缩，偏吞吐 | 否 | 否 |
+| `latency` | 更激进阈值，少排队、偏低延迟 | 否 | 否 |
+| `load` | 用户自定义 Prefill 队列 token、Decode KV 利用率阈值 | 否 | 否 |
+| `sla` | 直接对准 `ttft_ms` / `itl_ms`；用引擎性能模型（AIC / FPM）换算副本 | 是 | 推荐 |
+
+**双通路（与 AHPA「主动+被动」同构，但语义更贴 LLM）**
+
+1. **Throughput-based（偏预测 / 长周期）**  
+   - 用流量预测（文档提及 ARIMA、Prophet 等）估计未来负载；  
+   - 用预部署 profiling 或在线性能模型，把负载映射成「要多少 Prefill / Decode 副本才能打到 TTFT/ITL」；  
+   - 调整间隔较长（文档默认量级约 **180s**），充当**容量地板（capacity floor）**。
+
+2. **Load-based（偏反应 / 短周期）**  
+   - 读 ForwardPassMetrics（FPM）、队列、KV 等实时信号；  
+   - 用滑动窗口回归估计短期 TTFT/ITL；  
+   - 调整间隔较短（文档默认量级约 **5s**），在地板之上扛突发。
+
+两通路可同时开：预测保底仓，负载打尖刺。
+
+**控制流水线（设计文档）**：`PREDICT → PROPOSE → RECONCILE → CONSTRAIN → EXECUTE`，最后受 `min_endpoint`、`max_gpu_budget` 等约束裁剪。
+
+**和云厂商方案的本质差别**
+
+| 维度 | 云厂商 AHPA/IHPA/Predictive | Dynamo Planner |
+| --- | --- | --- |
+| 决策目标 | 多为利用率/QPS/副本数 | **直接对 TTFT/ITL SLA** |
+| 扩缩对象 | 通常一个 Deployment/服务 | **Prefill 与 Decode 可独立** |
+| 性能模型 | 一般没有引擎 profiling 曲线 | 有 profiling / AIC / FPM |
+| 交付形态 | 云控制台/托管组件 | 推理框架控制面（K8s 部署，后端可 vLLM/SGLang/TRT-LLM） |
+| Scale-to-Zero | 各云自行定义 | 本身管副本目标；是否缩到 0 取决于最小副本配置，不是主叙事 |
+
+**适用判断**：若对标「在线推理弹性预测」的**能力上限**，Dynamo Planner 目前是公开材料里最接近「LLM 原生预测弹性」的参考实现；云厂商若只做通用 AHPA 而不接 SLA/PD/引擎模型，会在大模型场景落后一截。
 
 ---
 
@@ -320,6 +368,7 @@ AHPA 把两通路写进产品语义（`proactive` / `reactive` / `auto`）；AWS
 | **华为云 ModelArts** | 有：指标触发自动扩缩（METRIC_HPA） | 有：定时触发（CRON_HPA） | **弱**：未见 AHPA/IHPA 级预测产品 | 偏通用资源/指标，大模型语义指标不突出 | 视部署与资源池配置；不是主打能力 | 能手动/自动/定时扩缩，但自动扩缩常要求挂在专属资源池；有基础、少亮点 |
 | **火山引擎 MLP + VKE** | 有：MLP 可按 GPU 利用率等做指标扩缩 | 有：MLP 支持定时扩缩 | **可联动、非开箱**：MLP 本身主要是指标+定时；「智能预测提前扩」在 **VKE IHPA**。叙事清晰，但通常要容器层联动 | MLP 偏 GPU 利用率；更细的自定义/复合指标多在 AI 推理套件（可做 PD 分离独立伸缩等） | MLP 自动扩缩公开材料里常见最小副本 ≥1，不强调缩 0 | 强在容器层 IHPA 预测叙事 + 大规模推理实践/套件；预测没有一键长在 MLP 控制台 |
 | **百度智能云 千帆** | 弱：专属推理服务多见控制台/API 手动改副本 | 弱 | **没有** | 弱 | 弱 | 更偏模型与 Agent 平台；弹性扩缩不是主战场 |
+| **NVIDIA Dynamo Planner**（推理框架层，非云托管控制台） | 强且语义化：可按队列、KV、FPM 做负载扩缩；默认也可走吞吐/延迟阈值模式 | 弱/非主路径：重点不在 Cron，而在预测+SLA | **有（sla/throughput 通路）**：可用 ARIMA/Prophet 等预测流量，再按引擎性能模型算最少 P/D 副本；与短周期负载扩缩组成地板+突发 | **最强档之一**：原生围绕 TTFT/ITL、Prefill 队列 token、Decode KV、FPM；PD 分角色扩缩是一等公民 | 本身输出副本目标；是否缩到 0 看 `min_endpoint` 与部署，不是主打卖点 | **LLM 原生弹性预测参考实现**：决策对准 SLA 而非 CPU%；强在引擎模型+PD+双通路；弱在需要自建/接入 Dynamo 栈，不是开箱云产品 |
 
 #### 3.1 补充：「L3 预测」列怎么读
 
@@ -340,6 +389,7 @@ AHPA 把两通路写进产品语义（`proactive` / `reactive` / `auto`）；AWS
 
 | 方案 | 位置 | 核心机制 | 推理内建度 |
 | --- | --- | --- | --- |
+| **NVIDIA Dynamo Planner** | **推理框架 / 控制面层**（Dynamo；可跑在 K8s；对接 vLLM/SGLang/TRT-LLM 等） | **直接对 TTFT/ITL SLA** 算 Prefill/Decode 副本。吞吐/预测通路：流量预测（文档提及 ARIMA/Prophet 等）+ 引擎性能模型（profiling / AIC / 在线 FPM）→ 最少 P/D 副本，长周期（约 180s 量级）做容量地板；负载通路：实时 FPM/队列/KV + 回归估计短周期延迟，短周期（约 5s 量级）扛突发。流水线：`PREDICT → PROPOSE → RECONCILE → CONSTRAIN → EXECUTE`，受 GPU budget / min replica 约束 | **对 LLM 推理「能力内建」最深**；但对云厂商而言不是托管控制台开箱功能，需集成 Dynamo 栈。SLA 模式对 disagg 更完整 |
 | **阿里 ACK AHPA** | 容器层（ACK 智能扩缩组件，不是 PAI-EAS 里的按钮） | 建议约 ≥7 天监控历史（CPU/GPU/内存/QPS/时延等）；自动规划未来约 24 小时内**每一分钟**目标副本（约等于系统生成 1440 个定时点）；可设分位数（越高越保守）；用 `scaleUpForward` 填 Ready 时长并按此时长提前开机器；主动按规律提前扩 + 被动发现实时偏离立刻补；可先 observer 只观察不改副本 | **需联动**：推理负载要接到 ACK/AHPA；与 EAS 是生态拼装，不是 EAS 内建一键 |
 | **火山 VKE IHPA** | 容器层（VKE 智能伸缩，不是 MLP 控制台内建开关） | 用历史用量 + 时序模型构建资源画像（副本与 CPU/内存随时间怎么变）；在高峰前把副本加上，缓解「等指标超了再扩、扩好时峰已过」；工程上常见同时看「实时指标」和「预测指标」 | **需联动**：预测在 VKE；MLP 推理服务本身仍以指标扩缩+定时为主 |
 | **AWS Predictive Scaling** | 应用弹性层（EC2 Auto Scaling / ECS 等） | 至少约 1 天历史可开始预报，约 14 天更准；预测未来约 48 小时、偏**小时级**；大约每 6 小时用新数据更新；可设缓冲让实例比预报高峰更早启动；常见先 ForecastOnly 看准不准，再 ForecastAndScale；预测策略主扩，缩容通常另配动态策略 | **未贯通**：SageMaker 端点目前仍是指标扩缩 + 定时，用不了这套 Predictive |
@@ -349,38 +399,45 @@ AHPA 把两通路写进产品语义（`proactive` / `reactive` / `auto`）；AWS
 
 | 业务更像… | 更该看谁 | 原因 |
 | --- | --- | --- |
-| 每天/每周有固定忙闲，高峰只有几十分钟，冷启动又慢 | 优先对标 **阿里 AHPA** 这类分钟级提前扩 | 细粒度计划 + 按 Ready 时长抢跑 |
+| 大模型在线推理，要保 TTFT/ITL，且已 PD 分离 | **优先对标 NVIDIA Dynamo Planner** | 唯一把「流量预测 + 引擎性能模型 + PD 独立扩缩 + SLA」闭环说清楚的公开方案 |
+| 每天/每周有固定忙闲，高峰只有几十分钟，冷启动又慢（通用服务也可） | 对标 **阿里 AHPA** 这类分钟级提前扩 | 细粒度计划 + 按 Ready 时长抢跑；但是通用指标，不是 TTFT 原生 |
 | 高峰是整点级潮汐，想先看预报再交给算法 | 参考 **AWS Predictive** 的产品节奏 | ForecastOnly → 再启用；预测扩、动态缩 |
-| 已有大模型推理平台，缺的是「别让人天天改 Cron」 | 对标 **火山 IHPA 叙事 + 腾讯 TI 的指标/PD** | 一边补预测免运维，一边补 LLM 语义指标 |
+| 已有大模型推理平台，缺的是「别让人天天改 Cron」 | 对标 **火山 IHPA 叙事 + 腾讯 TI 的指标/PD**；能力上限看 Dynamo | 云产品侧补免运维与语义指标；引擎侧补 SLA 规划 |
 | 只是想先有可用弹性 | 先把 **Cron⊕HPA** 做稳 | 所有友商的共同底座，也是伪预测里最稳的 |
 
-**读表要点**：AHPA 的分钟级规划更贴短高峰；AWS 的小时级更贴粗潮汐；两者都要把冷启动时间写进调度。表里「需联动 / 未贯通」表示预测技术和推理产品仍是两张皮——这也是差异化窗口。
+**读表要点**：  
+- **Dynamo Planner** 是 LLM 场景的能力上限参考（SLA + PD + 预测/负载双通路）；  
+- **AHPA** 的分钟级规划更贴通用短高峰；**AWS Predictive** 的小时级更贴粗潮汐；  
+- 云厂商表里「需联动 / 未贯通」表示预测技术和推理产品仍是两张皮——若要对齐 Dynamo，差异化不只是接 AHPA，而是把 **TTFT/ITL + 引擎模型 + PD 分角色** 做进推理控制面。
 
 ### 3.3 扩缩指标对比（在线推理常用）
 
-| 指标类型 | AWS | Azure | GCP Vertex | 阿里 EAS | 腾讯 TI | 华为 | 火山 MLP |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| CPU / Memory | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| GPU Util / Duty | ✅（增强指标） | 有限 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| QPS / Invocations | ✅ | 可配 | ✅ request count | ✅ | ✅ | 视版本 | 视策略 |
-| 并发 / 进行中请求 | ✅ ConcurrentRequests* | 有限 | waiting requests | 自定义 | ✅ | 有限 | 自定义/套件 |
-| 异步队列长度 | Async 场景 | 弱 | 弱 | ✅ | 弱 | 弱 | 弱 |
-| Token / KV Cache | 弱/自建 | 弱 | ✅ vLLM 指标 | 路由/引擎侧增强 | ✅ Token 利用率 | 弱 | 套件侧可做 |
-| 自定义指标 | CloudWatch 自定义 | Azure Monitor | 有限扩展 | ✅ | 部分 | 部分 | KEDA/自定义 |
+| 指标类型 | AWS | Azure | GCP Vertex | 阿里 EAS | 腾讯 TI | 华为 | 火山 MLP | **Dynamo Planner** |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| CPU / Memory | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 非主决策信号 |
+| GPU Util / Duty | ✅（增强指标） | 有限 | ✅ | ✅ | ✅ | ✅ | ✅ | 可参考，但最终对 SLA |
+| QPS / Invocations | ✅ | 可配 | ✅ request count | ✅ | ✅ | 视版本 | 视策略 | 转化为 token/队列负载 |
+| 并发 / 进行中请求 | ✅ ConcurrentRequests* | 有限 | waiting requests | 自定义 | ✅ | 有限 | 自定义/套件 | Prefill 队列等 |
+| 异步队列长度 | Async 场景 | 弱 | 弱 | ✅ | 弱 | 弱 | 弱 | Prefill queue tokens |
+| Token / KV Cache | 弱/自建 | 弱 | ✅ vLLM 指标 | 路由/引擎侧增强 | ✅ Token 利用率 | 弱 | 套件侧可做 | **一等公民**（Decode KV、FPM） |
+| TTFT / ITL（SLA） | 弱/自建 | 弱 | 弱/观测向 | 弱 | 弱 | 弱 | 弱 | **直接作为扩缩目标** |
+| 自定义指标 | CloudWatch 自定义 | Azure Monitor | 有限扩展 | ✅ | 部分 | 部分 | KEDA/自定义 | 插件化 propose 管线可扩展 |
 
 ---
 
 ## 4. 关键洞察
 
-1. **预测能力「产品化断层」**：真正叫得响的 L3（AHPA / IHPA / Predictive Scaling）多在 **K8s/容器弹性面**；托管推理控制台仍以 HPA+Cron 为主。谁先把「预测控制器」一等公民化进推理产品，谁就有差异化。
-2. **LLM 让反应式更不够用**：GPU 冷启动 + KV 状态 + PD 不对称伸缩，使「指标超阈再扩」的失败成本更高；行业在补 **语义指标（L4）** 与 **预测预热（L3）**。
-3. **Cron 仍是性价比最高的“弱预测”**：潮汐明显业务上，定时改 min/max 往往比不成熟的预测模型更稳；头部厂商都在推 **Cron ⊕ HPA**。
-4. **Scale-to-Zero ≠ 弹性预测**：缩 0 优化闲时成本，但放大冷启动；没有预测预热/请求缓冲时，不适合强实时在线 SLA。
-5. **库存与扩容成功率成为隐藏瓶颈**：阿里弹性资源池、AWS Instance Pools、GCP Reservation 说明——预测对了还要 **能买到卡**。
-6. **国内对比结论**：
-   - **预测技术叙事**：火山 IHPA、阿里 AHPA 领先；
-   - **推理产品完整度**：阿里 EAS、腾讯 TI（LLM 指标/PD）领先；
-   - **国际侧**：GCP 指标与缩 0、AWS 冷启动工程与容量感知更强，但 L3 未进推理主路径。
+1. **预测能力「产品化断层」**：云侧真正叫得响的 L3（AHPA / IHPA / Predictive Scaling）多在 **K8s/容器弹性面**；托管推理控制台仍以 HPA+Cron 为主。框架侧则出现 **NVIDIA Dynamo Planner** 这种 LLM 原生规划器——云厂商若只把通用预测搬进推理，仍会与 Dynamo 差一层。
+2. **LLM 让反应式更不够用**：GPU 冷启动 + KV 状态 + PD 不对称伸缩，使「指标超阈再扩」的失败成本更高；行业在补 **语义指标（L4）** 与 **预测预热（L3）**。Dynamo 进一步把目标从利用率改成 **TTFT/ITL**。
+3. **两层预测不要混**：AHPA/IHPA/AWS Predictive 预测的是「通用负载→副本」；Dynamo 预测的是「LLM 流量→在性能模型约束下满足 SLA 的 P/D 副本」。做在线推理弹性预测，应对齐后者。
+4. **Cron 仍是性价比最高的“弱预测”**：潮汐明显业务上，定时改 min/max 往往比不成熟的预测模型更稳；头部云厂商都在推 **Cron ⊕ HPA**。
+5. **Scale-to-Zero ≠ 弹性预测**：缩 0 优化闲时成本，但放大冷启动；没有预测预热/请求缓冲时，不适合强实时在线 SLA。
+6. **库存与扩容成功率成为隐藏瓶颈**：阿里弹性资源池、AWS Instance Pools、GCP Reservation，以及 Dynamo 的 `max_gpu_budget`，都说明——预测对了还要 **能落到卡**。
+7. **对比结论（补 Dynamo 后）**：
+   - **LLM 弹性预测能力上限**：NVIDIA Dynamo Planner；
+   - **云上通用预测技术叙事**：火山 IHPA、阿里 AHPA；
+   - **云上推理产品完整度**：阿里 EAS、腾讯 TI（LLM 指标/PD）；
+   - **国际托管侧**：GCP 指标与缩 0、AWS 冷启动工程与容量感知更强，但 L3 未进推理主路径。
 
 ---
 
@@ -403,17 +460,20 @@ AHPA 把两通路写进产品语义（`proactive` / `reactive` / `auto`）；AWS
 | --- | --- | --- |
 | P0 | LLM 语义指标 HPA（waiting / KV / Token / 队列）+ Cron⊕HPA | 立即缩小与 TI/Vertex 差距 |
 | P0 | 冷启动预算进入决策（scale-up forward） | 没有它，预测无法变成 SLA |
-| P1 | 托管内建「智能预测扩缩」（对标 AHPA/IHPA） | 核心差异化，避免只做反应式 |
-| P1 | 容量感知扩容（多规格回退/弹性资源池） | 预测有效的前提是扩得出来 |
+| P0 | **TTFT/ITL 作为扩缩目标（对标 Dynamo `sla`）** | 这才是在线推理预测的业务语言，不是 CPU% |
+| P1 | 托管内建「智能预测扩缩」（对标 AHPA/IHPA 的产品化 + Dynamo 的双通路） | 长周期预测地板 + 短周期负载兜底 |
+| P1 | **引擎性能模型 / profiling（负载→副本换算）** | Dynamo 与通用 AHPA 的关键分水岭 |
+| P1 | 容量感知扩容（多规格回退/弹性资源池 / GPU budget） | 预测有效的前提是扩得出来 |
 | P2 | Scale-to-Zero + 请求缓冲/重试协议 | 降本场景；需与预测预热绑定 |
-| P2 | PD 角色独立预测与伸缩 | 大模型成本与尾延迟关键杠杆 |
+| P2 | PD 角色独立预测与伸缩 | 大模型成本与尾延迟关键杠杆；Dynamo 已证明这是一等公民 |
 
 ### 5.3 与友商对标策略（简表）
 
 | 若竞争焦点是… | 主要对标 | 我方应强调 |
 | --- | --- | --- |
-| 预测准确与提前量 | 阿里 AHPA、火山 IHPA | 推理场景特征（Token/KV/活动会话）而非泛 CPU 预测 |
-| LLM 生产弹性 | 腾讯 TI、GCP Vertex | Token/KV/PD 一等公民指标与策略模板 |
+| LLM 原生弹性预测（能力上限） | **NVIDIA Dynamo Planner** | TTFT/ITL 目标 + 引擎性能模型 + PD 独立扩缩 + 预测/负载双通路 |
+| 预测准确与提前量（云产品化） | 阿里 AHPA、火山 IHPA | 推理场景特征（Token/KV/活动会话）而非泛 CPU 预测 |
+| LLM 生产弹性（托管控制台） | 腾讯 TI、GCP Vertex | Token/KV/PD 一等公民指标与策略模板 |
 | 企业稳定性与扩容成功率 | AWS SageMaker、阿里弹性资源池 | 亚分钟检测 + 缓存 + 多规格库存兜底 |
 | 闲时成本 | GCP/阿里 Scale-to-Zero | 「预测预热 + 缩 0」组合，避免裸缩 0 |
 
@@ -423,14 +483,15 @@ AHPA 把两通路写进产品语义（`proactive` / `reactive` / `auto`）；AWS
 
 当前友商在线推理弹性呈现 **「L1+L2 标配、L3 在容器层萌芽、L4 随 LLM 加速」** 的格局。尚无厂商在「托管推理控制台」内把 **流量预测 → 冷启动前置 → 语义指标兜底 → 库存回退** 做成完整闭环。
 
-把「预测」讲透后，差异化不应止于接入一个时序模型，而应产品化这四件事：
+把「预测」讲透后，差异化不应止于接入一个时序模型，而应产品化这些事：
 
-1. **双通路**：周期主动预测 + 突发被动兜底（可先 Observer 再接管）；
+1. **双通路**：周期主动预测 + 突发被动兜底（可先 Observer 再接管）；Dynamo 已用「长周期吞吐预测地板 + 短周期负载」示范；
 2. **冷启动一等公民**：`scaleUpForward` 按模型/镜像实测校准，而不是全局常数；
-3. **推理语义负载**：用 Token/KV/waiting 等可映射到「有效容量」的量做预测，避免裸 CPU；
-4. **执行闭环**：预测副本还要过库存/多规格回退，否则预测成功、扩容失败。
+3. **推理语义负载与 SLA**：用 Token/KV/waiting，并最终对 **TTFT/ITL** 决策，避免裸 CPU；
+4. **引擎性能模型**：把预测负载换算成 P/D 副本——这是 Dynamo 相对 AHPA/IHPA 的关键增量；
+5. **执行闭环**：预测副本还要过 GPU budget / 库存 / 多规格回退，否则预测成功、扩容失败。
 
-对云计算厂商而言，短期用 **Cron⊕语义 HPA⊕冷启动感知** 追平；中期把上述闭环做进在线推理控制面——这是最清晰的窗口。
+对云计算厂商而言：短期用 **Cron⊕语义 HPA⊕冷启动感知** 追平云友商；中期应对齐 **Dynamo Planner 的 LLM 原生规划能力**，把「预测 → 性能模型 → PD 分角色 → SLA」做进在线推理控制面——这是最清晰的窗口。
 
 ---
 
@@ -444,3 +505,4 @@ AHPA 把两通路写进产品语义（`proactive` / `reactive` / `auto`）；AWS
 - 华为云 ModelArts：CRON_HPA / METRIC_HPA
 - 火山引擎：VKE IHPA；MLP 定时/指标扩缩；AI 云原生推理套件
 - 百度千帆：专属推理服务扩缩容 API/控制台
+- NVIDIA Dynamo：Planner / Planner Guide / Planner Design；0.4 SLO-based autoscaling 技术博客
