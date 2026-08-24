@@ -1,0 +1,200 @@
+# aasp-scale-demo: mock-mode adapter + Kthena policy/binding
+# Usage:
+#   1) build/push image, replace <ADAPTER_IMAGE>
+#   2) kubectl apply -f deploy.yaml
+#   3) curl metrics via port-forward; watch ModelServing replicas
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aasp-scale-demo
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aasp-api-token
+  namespace: aasp-scale-demo
+type: Opaque
+stringData:
+  token: "replace-me"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aasp-metrics-adapter
+  namespace: aasp-scale-demo
+  labels:
+    app: aasp-metrics-adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aasp-metrics-adapter
+  template:
+    metadata:
+      labels:
+        app: aasp-metrics-adapter
+        aasp-metrics: "true"
+    spec:
+      containers:
+        - name: adapter
+          image: <ADAPTER_IMAGE>
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: metrics
+              containerPort: 8000
+          env:
+            - name: MOCK
+              value: "1"
+            - name: MOCK_RPM
+              value: "100"
+            - name: MOCK_PROMPT_TPM
+              value: "32000"
+            - name: MOCK_COMPLETION_TPM
+              value: "32000"
+            - name: PROJECT_ID
+              value: "demo-project"
+            - name: SERVICE_GROUP_ID
+              value: "mock-predict-serving"
+            - name: REGION
+              value: "cn-east-204-dev"
+            - name: POLL_SECONDS
+              value: "15"
+            - name: METRICS_PORT
+              value: "8000"
+            # Real mode: set MOCK=0 and uncomment:
+            # - name: BASE_URL
+            #   value: "https://apigw-beta.huawei.com"
+            # - name: TOKEN
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: aasp-api-token
+            #       key: token
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: aasp-metrics-adapter
+  namespace: aasp-scale-demo
+spec:
+  selector:
+    app: aasp-metrics-adapter
+  ports:
+    - name: metrics
+      port: 8000
+      targetPort: 8000
+---
+# Temporary ModelServing that only runs the adapter so Kthena can scrape pods.
+# Replace image with the same <ADAPTER_IMAGE>.
+apiVersion: workload.serving.volcano.sh/v1alpha1
+kind: ModelServing
+metadata:
+  name: mock-predict-serving
+  namespace: aasp-scale-demo
+spec:
+  replicas: 1
+  recoveryPolicy: None
+  template:
+    roles:
+      - name: infer
+        replicas: 1
+        workerReplicas: 0
+        entryTemplate:
+          spec:
+            containers:
+              - name: adapter
+                image: <ADAPTER_IMAGE>
+                ports:
+                  - name: metrics
+                    containerPort: 8000
+                env:
+                  - name: MOCK
+                    value: "1"
+                  - name: MOCK_RPM
+                    value: "100"
+                  - name: MOCK_PROMPT_TPM
+                    value: "32000"
+                  - name: MOCK_COMPLETION_TPM
+                    value: "32000"
+                  - name: PROJECT_ID
+                    value: "demo-project"
+                  - name: SERVICE_GROUP_ID
+                    value: "mock-predict-serving"
+                  - name: REGION
+                    value: "cn-east-204-dev"
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+                  limits:
+                    cpu: 200m
+                    memory: 128Mi
+            imagePullSecrets:
+              - name: default-secret
+---
+apiVersion: workload.serving.volcano.sh/v1alpha1
+kind: AutoscalingPolicy
+metadata:
+  name: aasp-predictive-scaling-multi
+  namespace: aasp-scale-demo
+spec:
+  metrics:
+    - metricName: aasp_predicted_rpm
+      targetValue: 100
+    - metricName: aasp_predicted_prompt_tpm
+      targetValue: 50000
+    - metricName: aasp_predicted_completion_tpm
+      targetValue: 50000
+  tolerancePercent: 10
+  behavior:
+    scaleUp:
+      stablePolicy:
+        stabilizationWindow: 30s
+        period: 15s
+        percent: 100
+        instances: 2
+        selectPolicy: Or
+      panicPolicy:
+        panicThresholdPercent: 200
+        panicModeHold: 2m
+        period: 15s
+        percent: 100
+    scaleDown:
+      stabilizationWindow: 1m
+      period: 30s
+      percent: 50
+      instances: 1
+      selectPolicy: Or
+---
+apiVersion: workload.serving.volcano.sh/v1alpha1
+kind: AutoscalingPolicyBinding
+metadata:
+  name: aasp-predictive-binding-multi
+  namespace: aasp-scale-demo
+spec:
+  policyRef:
+    name: aasp-predictive-scaling-multi
+  homogeneousTarget:
+    minReplicas: 1
+    maxReplicas: 6
+    target:
+      targetRef:
+        apiVersion: workload.serving.volcano.sh/v1alpha1
+        kind: ModelServing
+        name: mock-predict-serving
+      metricEndpoint:
+        port: 8000
+        uri: /metrics
