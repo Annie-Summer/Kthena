@@ -36,10 +36,13 @@ spec:
         app: aasp-metrics-adapter
         aasp-metrics: "true"
     spec:
+      # If image still has permission issues, uncomment:
+      # securityContext:
+      #   runAsUser: 0
       containers:
         - name: adapter
           image: <ADAPTER_IMAGE>
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - name: metrics
               containerPort: 8000
