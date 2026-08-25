@@ -198,6 +198,12 @@ spec:
         apiVersion: workload.serving.volcano.sh/v1alpha1
         kind: ModelServing
         name: mock-predict-serving
+      # Scheme A: scrape exactly one pod that carries aasp-metric-source=true
+      # so global predicted gauges are not summed across replicas (avoids ×N).
+      # Verify on cluster: kubectl explain autoscalingpolicybindings.spec.homogeneousTarget.target.metricEndpoint
       metricEndpoint:
         port: 8000
         uri: /metrics
+        labelSelector:
+          matchLabels:
+            aasp-metric-source: "true"

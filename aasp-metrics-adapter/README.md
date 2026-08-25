@@ -83,7 +83,36 @@ kubectl -n aasp-scale-demo port-forward deploy/aasp-metrics-adapter 8000:8000
 curl -s localhost:8000/metrics
 ```
 
-**Important:** expose **global** peaks from a single scrape target (`replicas: 1` or Binding `labelSelector`). If every ModelServing replica reports the same global value, Kthena sums them and over-scales.
+## Recommended: Scheme A (single scrape pod)
+
+Global AASP peaks must be scraped from **one** ModelServing pod. Otherwise Kthena sums the same value across replicas and over-scales (×N).
+
+1. Run Adapter (sidecar or container) on the ModelServing you scale; expose `:8000/metrics`.
+2. Mark **exactly one** Ready pod:
+
+```bash
+kubectl -n <ns> label pod <one-pod> aasp-metric-source=true --overwrite
+# when that pod is gone, label another Ready pod the same way
+```
+
+3. Binding scrapes only that pod (`deploy.yaml` already sets this):
+
+```yaml
+metricEndpoint:
+  port: 8000
+  uri: /metrics
+  labelSelector:
+    matchLabels:
+      aasp-metric-source: "true"
+```
+
+4. Confirm on your cluster that `metricEndpoint.labelSelector` exists:
+
+```bash
+kubectl explain autoscalingpolicybindings.spec.homogeneousTarget.target.metricEndpoint
+```
+
+If your 1.22.1 build has no `labelSelector`, fall back to: only the elected pod exposes non-zero gauges; all other pods expose `0` for the three predicted series (sum still equals the global peak).
 
 ## Wire to autoscaling
 

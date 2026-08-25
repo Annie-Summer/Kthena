@@ -261,15 +261,20 @@ spec:
         apiVersion: workload.serving.volcano.sh/v1alpha1
         kind: ModelServing
         name: mock-predict-serving
+      # Scheme A：只刮带 aasp-metric-source=true 的那一个 Pod，避免全局预测 ×N
       metricEndpoint:
         port: 8000
         uri: /metrics
+        labelSelector:
+          matchLabels:
+            aasp-metric-source: "true"
 EOF
 ```
 
-确认：
+确认（若 apply 报 unknown field `labelSelector`，说明当前 1.22.1 无此字段，改用「仅一 Pod 暴露非 0、其余报 0」）：
 
 ```bash
+kubectl explain autoscalingpolicybindings.spec.homogeneousTarget.target.metricEndpoint
 kubectl -n aasp-scale-demo get autoscalingpolicy,autoscalingpolicybinding
 kubectl -n aasp-scale-demo get autoscalingpolicybinding aasp-predictive-binding-multi \
   -o jsonpath='{.spec.homogeneousTarget.target.metricEndpoint}{"\n"}'
@@ -339,6 +344,18 @@ kubectl -n aasp-scale-demo get pods -w
 ```
 
 期望出现：`mock-predict-serving-0-infer-0-0` 且 `1/1 Running`。
+
+### Scheme A：给唯一 scrape Pod 打标
+
+```bash
+POD=$(kubectl -n aasp-scale-demo get pods -l modelserving.volcano.sh/name=mock-predict-serving \
+  -o jsonpath='{.items[0].metadata.name}')
+# 若上面 label 不对，改用：kubectl -n aasp-scale-demo get pods
+kubectl -n aasp-scale-demo label pod "$POD" aasp-metric-source=true --overwrite
+kubectl -n aasp-scale-demo get pods -l aasp-metric-source=true
+```
+
+扩容后若该 Pod 被删，对**新的某一个** Ready Pod 重新执行 label（同时去掉旧 Pod 上的标签，保证全局只有一个）。
 
 ---
 
