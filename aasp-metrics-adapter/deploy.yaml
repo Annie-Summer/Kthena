@@ -1,4 +1,6 @@
 # aasp-scale-demo: mock-mode adapter + Kthena policy/binding
+# Leader election: every ModelServing pod can run the adapter; only the Lease
+# holder exposes non-zero predicted gauges (followers expose 0 → no ×N).
 # Usage:
 #   1) build/push image, replace <ADAPTER_IMAGE>
 #   2) kubectl apply -f deploy.yaml
@@ -8,6 +10,36 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: aasp-scale-demo
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aasp-metrics-adapter
+  namespace: aasp-scale-demo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: aasp-metrics-leader
+  namespace: aasp-scale-demo
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aasp-metrics-leader
+  namespace: aasp-scale-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aasp-metrics-leader
+subjects:
+  - kind: ServiceAccount
+    name: aasp-metrics-adapter
+    namespace: aasp-scale-demo
 ---
 apiVersion: v1
 kind: Secret
@@ -36,9 +68,7 @@ spec:
         app: aasp-metrics-adapter
         aasp-metrics: "true"
     spec:
-      # If image still has permission issues, uncomment:
-      # securityContext:
-      #   runAsUser: 0
+      serviceAccountName: aasp-metrics-adapter
       containers:
         - name: adapter
           image: <ADAPTER_IMAGE>
@@ -65,6 +95,18 @@ spec:
               value: "15"
             - name: METRICS_PORT
               value: "8000"
+            - name: LEADER_ELECTION
+              value: "1"
+            - name: LEASE_NAME
+              value: "aasp-metrics-leader"
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             # Real mode: set MOCK=0 and uncomment:
             # - name: BASE_URL
             #   value: "https://apigw-beta.huawei.com"
@@ -100,8 +142,8 @@ spec:
       port: 8000
       targetPort: 8000
 ---
-# Temporary ModelServing that only runs the adapter so Kthena can scrape pods.
-# Replace image with the same <ADAPTER_IMAGE>.
+# ModelServing runs the adapter on every replica. Leader election ensures only
+# one pod exposes non-zero predicted gauges; Binding scrapes all pods.
 apiVersion: workload.serving.volcano.sh/v1alpha1
 kind: ModelServing
 metadata:
@@ -117,6 +159,7 @@ spec:
         workerReplicas: 0
         entryTemplate:
           spec:
+            serviceAccountName: aasp-metrics-adapter
             containers:
               - name: adapter
                 image: <ADAPTER_IMAGE>
@@ -138,6 +181,18 @@ spec:
                     value: "mock-predict-serving"
                   - name: REGION
                     value: "cn-east-204-dev"
+                  - name: LEADER_ELECTION
+                    value: "1"
+                  - name: LEASE_NAME
+                    value: "aasp-metrics-leader"
+                  - name: POD_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.name
+                  - name: POD_NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
                 resources:
                   requests:
                     cpu: 50m
@@ -198,12 +253,8 @@ spec:
         apiVersion: workload.serving.volcano.sh/v1alpha1
         kind: ModelServing
         name: mock-predict-serving
-      # Scheme A: scrape exactly one pod that carries aasp-metric-source=true
-      # so global predicted gauges are not summed across replicas (avoids ×N).
-      # Verify on cluster: kubectl explain autoscalingpolicybindings.spec.homogeneousTarget.target.metricEndpoint
+      # Scrape all ModelServing pods. With leader election, only one exposes
+      # non-zero predicted gauges; the rest expose 0 → sum == global peak.
       metricEndpoint:
         port: 8000
         uri: /metrics
-        labelSelector:
-          matchLabels:
-            aasp-metric-source: "true"

@@ -6,7 +6,7 @@ from __future__ import annotations
 import importlib
 import os
 import unittest
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest import mock
 
 
@@ -18,6 +18,8 @@ def load_adapter(env: dict[str, str] | None = None):
         "REGION": "cn-east-204-dev",
         "TOKEN": "test-token",
         "MOCK": "0",
+        "LEADER_ELECTION": "0",
+        "POD_NAME": "test-pod",
     }
     base.update(env)
     with mock.patch.dict(os.environ, base, clear=False):
@@ -86,6 +88,20 @@ class AdapterTests(unittest.TestCase):
         self.assertIn("aasp_predicted_prompt_tpm{", text)
         self.assertIn("aasp_predicted_completion_tpm{", text)
         self.assertIn("} 12.0", text)
+        self.assertIn("aasp_adapter_is_leader{", text)
+
+    def test_follower_renders_zero_predicted_metrics(self):
+        mod = load_adapter({"MOCK": "1", "MOCK_RPM": "99", "POD_NAME": "follower-pod"})
+        mod.fetch_once()
+
+        class FakeElection:
+            def is_leader(self):
+                return False
+
+        mod._election = FakeElection()
+        text = mod.render_metrics().decode("utf-8")
+        self.assertRegex(text, r"aasp_predicted_rpm\{[^}]+\} 0\.0")
+        self.assertRegex(text, r"aasp_adapter_is_leader\{[^}]+\} 0")
 
     def test_keep_last_value_on_error(self):
         mod = load_adapter({"MOCK": "1", "MOCK_RPM": "55"})
@@ -95,6 +111,25 @@ class AdapterTests(unittest.TestCase):
             self.assertEqual(mod.state["rpm"], 55.0)
             self.assertEqual(mod.state["adapter_up"], 0)
             self.assertEqual(mod.state["last_error"], "boom")
+
+
+class LeaseHelpersTests(unittest.TestCase):
+    def test_lease_expired_without_renew(self):
+        from leader_election import LeaseLeaderElection
+
+        elec = LeaseLeaderElection.__new__(LeaseLeaderElection)
+        elec.lease_duration_seconds = 15
+        self.assertTrue(elec._lease_expired({"spec": {}}))
+
+    def test_lease_not_expired_recent_renew(self):
+        from leader_election import LeaseLeaderElection
+
+        elec = LeaseLeaderElection.__new__(LeaseLeaderElection)
+        elec.lease_duration_seconds = 15
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        self.assertFalse(
+            elec._lease_expired({"spec": {"renewTime": now, "leaseDurationSeconds": 15}})
+        )
 
 
 if __name__ == "__main__":

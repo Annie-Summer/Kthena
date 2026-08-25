@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""AASP metrics adapter: poll infer-recommendations API and expose Prometheus gauges."""
+"""AASP metrics adapter: poll infer-recommendations API and expose Prometheus gauges.
+
+When LEADER_ELECTION=1 (in-cluster), only the Lease holder polls AASP and exposes
+non-zero predicted gauges; followers expose 0 so Kthena can scrape all pods without ×N.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +17,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+from leader_election import LeaseLeaderElection
 
 LOG = logging.getLogger("aasp-metrics-adapter")
 
@@ -31,6 +37,14 @@ MOCK_RPM = float(os.environ.get("MOCK_RPM", "100"))
 MOCK_PROMPT_TPM = float(os.environ.get("MOCK_PROMPT_TPM", "32"))
 MOCK_COMPLETION_TPM = float(os.environ.get("MOCK_COMPLETION_TPM", "32"))
 
+# Leader election: only the leader polls AASP and exposes non-zero predicted metrics.
+LEADER_ELECTION = os.environ.get("LEADER_ELECTION", "0") == "1"
+LEASE_NAME = os.environ.get("LEASE_NAME", "aasp-metrics-leader")
+LEASE_DURATION_SECONDS = int(os.environ.get("LEASE_DURATION_SECONDS", "15"))
+LEASE_RENEW_SECONDS = float(os.environ.get("LEASE_RENEW_SECONDS", "5"))
+POD_NAME = os.environ.get("POD_NAME", "")
+POD_NAMESPACE = os.environ.get("POD_NAMESPACE", "")
+
 state_lock = threading.Lock()
 state: dict[str, Any] = {
     "rpm": 0.0,
@@ -42,6 +56,15 @@ state: dict[str, Any] = {
     "last_success": "",
     "adapter_up": 0,
 }
+
+# Set in main(); None means "always leader" (LEADER_ELECTION=0).
+_election: LeaseLeaderElection | None = None
+
+
+def is_leader() -> bool:
+    if _election is None:
+        return True
+    return _election.is_leader()
 
 
 def fmt_time(dt: datetime) -> str:
@@ -197,32 +220,49 @@ def fetch_once() -> None:
 
 
 def render_metrics() -> bytes:
+    leader = is_leader()
     with state_lock:
         snap = dict(state)
 
+    # Followers expose zeros so Binding can scrape every pod without ×N.
+    if leader:
+        rpm = snap["rpm"]
+        prompt = snap["prompt_tpm"]
+        completion = snap["completion_tpm"]
+        total = snap["total_tpm"]
+        latency = snap["latency"]
+        up = snap["adapter_up"]
+    else:
+        rpm = prompt = completion = total = latency = 0.0
+        up = 0
+
     labels = (
         f'service_group_id="{SERVICE_GROUP_ID}",'
-        f'region="{REGION}"'
+        f'region="{REGION}",'
+        f'pod="{POD_NAME}"'
     )
     lines = [
-        "# HELP aasp_predicted_rpm max rpm over AASP prediction window",
+        "# HELP aasp_predicted_rpm max rpm over AASP prediction window (leader only; followers 0)",
         "# TYPE aasp_predicted_rpm gauge",
-        f"aasp_predicted_rpm{{{labels}}} {snap['rpm']}",
-        "# HELP aasp_predicted_prompt_tpm max prompt_tpm over AASP prediction window",
+        f"aasp_predicted_rpm{{{labels}}} {rpm}",
+        "# HELP aasp_predicted_prompt_tpm max prompt_tpm over AASP prediction window (leader only; followers 0)",
         "# TYPE aasp_predicted_prompt_tpm gauge",
-        f"aasp_predicted_prompt_tpm{{{labels}}} {snap['prompt_tpm']}",
-        "# HELP aasp_predicted_completion_tpm max completion_tpm over AASP prediction window",
+        f"aasp_predicted_prompt_tpm{{{labels}}} {prompt}",
+        "# HELP aasp_predicted_completion_tpm max completion_tpm over AASP prediction window (leader only; followers 0)",
         "# TYPE aasp_predicted_completion_tpm gauge",
-        f"aasp_predicted_completion_tpm{{{labels}}} {snap['completion_tpm']}",
-        "# HELP aasp_predicted_total_tpm max total_tpm over AASP prediction window",
+        f"aasp_predicted_completion_tpm{{{labels}}} {completion}",
+        "# HELP aasp_predicted_total_tpm max total_tpm over AASP prediction window (leader only; followers 0)",
         "# TYPE aasp_predicted_total_tpm gauge",
-        f"aasp_predicted_total_tpm{{{labels}}} {snap['total_tpm']}",
-        "# HELP aasp_predicted_latency_ms max latency over AASP prediction window",
+        f"aasp_predicted_total_tpm{{{labels}}} {total}",
+        "# HELP aasp_predicted_latency_ms max latency over AASP prediction window (leader only; followers 0)",
         "# TYPE aasp_predicted_latency_ms gauge",
-        f"aasp_predicted_latency_ms{{{labels}}} {snap['latency']}",
-        "# HELP aasp_adapter_up 1 if last AASP fetch succeeded",
+        f"aasp_predicted_latency_ms{{{labels}}} {latency}",
+        "# HELP aasp_adapter_up 1 if leader and last AASP fetch succeeded",
         "# TYPE aasp_adapter_up gauge",
-        f"aasp_adapter_up{{{labels}}} {snap['adapter_up']}",
+        f"aasp_adapter_up{{{labels}}} {up}",
+        "# HELP aasp_adapter_is_leader 1 if this pod holds the metrics lease",
+        "# TYPE aasp_adapter_is_leader gauge",
+        f"aasp_adapter_is_leader{{{labels}}} {1 if leader else 0}",
     ]
     return ("\n".join(lines) + "\n").encode("utf-8")
 
@@ -248,28 +288,69 @@ class MetricsHandler(BaseHTTPRequestHandler):
 def poll_loop() -> None:
     while True:
         try:
-            fetch_once()
+            if is_leader():
+                fetch_once()
+            else:
+                LOG.debug("follower: skip AASP poll")
         except Exception:
             LOG.exception("unexpected error in poll loop")
             apply_peaks(0, 0, 0, error="unexpected poll error")
         time.sleep(POLL_SECONDS)
 
 
+def _resolve_namespace() -> str:
+    if POD_NAMESPACE:
+        return POD_NAMESPACE
+    ns_path = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+    if os.path.exists(ns_path):
+        with open(ns_path, encoding="utf-8") as f:
+            return f.read().strip()
+    return ""
+
+
 def main() -> None:
+    global _election
+
     logging.basicConfig(
         level=os.environ.get("LOG_LEVEL", "INFO"),
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
     LOG.info(
-        "starting adapter mock=%s port=%s poll=%ss window=%sm base=%s",
+        "starting adapter mock=%s port=%s poll=%ss window=%sm base=%s leader_election=%s",
         MOCK,
         METRICS_PORT,
         POLL_SECONDS,
         WINDOW_MINUTES,
         BASE_URL,
+        LEADER_ELECTION,
     )
-    # Prime metrics once before serving.
-    fetch_once()
+
+    if LEADER_ELECTION:
+        identity = POD_NAME or os.environ.get("HOSTNAME", "")
+        namespace = _resolve_namespace()
+        if not identity or not namespace:
+            raise SystemExit(
+                "LEADER_ELECTION=1 requires POD_NAME (or HOSTNAME) and POD_NAMESPACE"
+            )
+        _election = LeaseLeaderElection(
+            identity=identity,
+            namespace=namespace,
+            lease_name=LEASE_NAME,
+            lease_duration_seconds=LEASE_DURATION_SECONDS,
+            renew_interval_seconds=LEASE_RENEW_SECONDS,
+        )
+        _election.start()
+        # Wait briefly for first election tick so startup metrics are coherent.
+        deadline = time.time() + max(LEASE_RENEW_SECONDS * 2, 3.0)
+        while time.time() < deadline and not is_leader():
+            time.sleep(0.2)
+        if is_leader():
+            fetch_once()
+        else:
+            LOG.info("started as follower; waiting to acquire lease before polling AASP")
+    else:
+        fetch_once()
+
     threading.Thread(target=poll_loop, name="aasp-poller", daemon=True).start()
     server = ThreadingHTTPServer(("0.0.0.0", METRICS_PORT), MetricsHandler)
     server.serve_forever()

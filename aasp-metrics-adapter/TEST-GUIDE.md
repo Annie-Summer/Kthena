@@ -261,28 +261,61 @@ spec:
         apiVersion: workload.serving.volcano.sh/v1alpha1
         kind: ModelServing
         name: mock-predict-serving
-      # Scheme A：只刮带 aasp-metric-source=true 的那一个 Pod，避免全局预测 ×N
+      # Leader election: scrape all pods; followers expose 0 → sum == global peak
       metricEndpoint:
         port: 8000
         uri: /metrics
-        labelSelector:
-          matchLabels:
-            aasp-metric-source: "true"
 EOF
 ```
 
-确认（若 apply 报 unknown field `labelSelector`，说明当前 1.22.1 无此字段，改用「仅一 Pod 暴露非 0、其余报 0」）：
+确认：
 
 ```bash
-kubectl explain autoscalingpolicybindings.spec.homogeneousTarget.target.metricEndpoint
 kubectl -n aasp-scale-demo get autoscalingpolicy,autoscalingpolicybinding
 kubectl -n aasp-scale-demo get autoscalingpolicybinding aasp-predictive-binding-multi \
   -o jsonpath='{.spec.homogeneousTarget.target.metricEndpoint}{"\n"}'
+kubectl -n aasp-scale-demo get role,rolebinding,sa | grep aasp
 ```
 
 ---
 
 ## 5. 部署 ModelServing（跑 Adapter，供 Kthena 刮取）
+
+先确保 SA/RBAC 已创建（见 `deploy.yaml` 顶部，或）：
+
+```bash
+kubectl -n aasp-scale-demo apply -f - <<'EOF'
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aasp-metrics-adapter
+  namespace: aasp-scale-demo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: aasp-metrics-leader
+  namespace: aasp-scale-demo
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aasp-metrics-leader
+  namespace: aasp-scale-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aasp-metrics-leader
+subjects:
+  - kind: ServiceAccount
+    name: aasp-metrics-adapter
+    namespace: aasp-scale-demo
+EOF
+```
 
 ```bash
 IMAGE=swr.hcs-lab.ga159arm.com/cce-charts-hcs-lab-a163446a18ae451f91e6083ec1164afe/aasp-metrics-adapter:0.2.0
@@ -305,6 +338,7 @@ spec:
         workerReplicas: 0
         entryTemplate:
           spec:
+            serviceAccountName: aasp-metrics-adapter
             securityContext:
               runAsUser: 0
             containers:
@@ -329,6 +363,18 @@ spec:
                     value: "mock-predict-serving"
                   - name: REGION
                     value: "cn-east-204-dev"
+                  - name: LEADER_ELECTION
+                    value: "1"
+                  - name: LEASE_NAME
+                    value: "aasp-metrics-leader"
+                  - name: POD_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.name
+                  - name: POD_NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
                 resources:
                   requests:
                     cpu: "50m"
@@ -345,17 +391,18 @@ kubectl -n aasp-scale-demo get pods -w
 
 期望出现：`mock-predict-serving-0-infer-0-0` 且 `1/1 Running`。
 
-### Scheme A：给唯一 scrape Pod 打标
+### 选主验收
 
 ```bash
-POD=$(kubectl -n aasp-scale-demo get pods -l modelserving.volcano.sh/name=mock-predict-serving \
-  -o jsonpath='{.items[0].metadata.name}')
-# 若上面 label 不对，改用：kubectl -n aasp-scale-demo get pods
-kubectl -n aasp-scale-demo label pod "$POD" aasp-metric-source=true --overwrite
-kubectl -n aasp-scale-demo get pods -l aasp-metric-source=true
+kubectl -n aasp-scale-demo get lease aasp-metrics-leader -o yaml
+# holderIdentity 应为某个 Pod 名
+
+curl -s http://127.0.0.1:18000/metrics | grep aasp_adapter_is_leader
+# Leader: aasp_adapter_is_leader ... 1
+# 多副本时，其余 Pod 应为 0，且 predicted_* 为 0
 ```
 
-扩容后若该 Pod 被删，对**新的某一个** Ready Pod 重新执行 label（同时去掉旧 Pod 上的标签，保证全局只有一个）。
+缩容杀掉原 Leader 后，约 `LEASE_DURATION_SECONDS`（默认 15s）内会选出新 Leader，无需手工迁标签。
 
 ---
 
@@ -390,35 +437,29 @@ recommendedInstances=1
 spec=1 status=1
 ```
 
-计算公式（单 scrape 源、全局值）：
+计算公式（选主后求和 = 全局值）：
 
 ```text
 desired ≈ max(rpm/100, prompt_tpm/50000, completion_tpm/50000)
 再限制在 [minReplicas, maxReplicas]=[1,6]
 ```
 
-> 多副本时，若每个 Pod 都暴露同一全局值，Autoscaler 会 **求和 ×N**。  
-> 例：6 Pod × rpm=600 → ReadyInstancesMetrics.rpm=3600。  
-> 生产应只刮 1 个源，或每 Pod 报 `总量/N`。
+> 开启 `LEADER_ELECTION=1` 后：仅 Leader 暴露真实预测值，Follower 为 0；Binding 可刮全部 Pod，求和不再 ×N。  
+> 未开选主且每 Pod 都报同一全局值时：6 Pod × rpm=600 → ReadyInstancesMetrics.rpm=3600。
 
 ---
 
 ## 7. 扩容测试（MOCK_RPM=600 → 期望约 6）
 
+> 不要用「整段替换 env」把 `POD_NAME`/`POD_NAMESPACE`/`LEADER_ELECTION` 冲掉。  
+> 下面用 JSON patch 只改 MOCK 相关项（下标按 section 5 的 env 顺序：0=MOCK … 3=MOCK_COMPLETION_TPM）。
+
 ```bash
 kubectl -n aasp-scale-demo patch modelserving mock-predict-serving --type=json -p='[
-  {"op":"replace","path":"/spec/template/roles/0/entryTemplate/spec/containers/0/env","value":[
-    {"name":"MOCK","value":"1"},
-    {"name":"MOCK_RPM","value":"600"},
-    {"name":"MOCK_PROMPT_TPM","value":"32000"},
-    {"name":"MOCK_COMPLETION_TPM","value":"32000"},
-    {"name":"PROJECT_ID","value":"demo-project"},
-    {"name":"SERVICE_GROUP_ID","value":"mock-predict-serving"},
-    {"name":"REGION","value":"cn-east-204-dev"}
-  ]}
+  {"op":"replace","path":"/spec/template/roles/0/entryTemplate/spec/containers/0/env/1/value","value":"600"}
 ]'
 
-# 重建 Pod 使 env 生效（subPath/旧进程不会热更新 MOCK）
+# 重建 Pod 使 env 生效
 kubectl -n aasp-scale-demo delete pod $(kubectl -n aasp-scale-demo get pods -o name | grep mock-predict | tr '\n' ' ')
 kubectl -n aasp-scale-demo get pods -w
 ```
