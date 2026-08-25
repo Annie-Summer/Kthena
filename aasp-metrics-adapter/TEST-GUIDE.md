@@ -1,621 +1,526 @@
-# AASP Metrics Adapter + Kthena 预测扩缩容测试手册（可复现）
+# AASP → Kthena 预测扩缩容：可复现手册（含排障与切真 API）
 
-> 环境：华为 CCE + Kthena（AutoscalingPolicy / Binding / ModelServing）  
-> 目标：用 MOCK 指标验证「Adapter → 三指标 → Autoscaler → ModelServing 副本」闭环  
-> 命名空间：`aasp-scale-demo`
+> 环境：华为 CCE/HCS + `kthena-controller-manager:1.22.1`（Binding 仅支持 `metricEndpoint` 刮 Pod）  
+> 链路：**AASP/MOCK → Adapter（Lease 选主）→ Pod `/metrics` → Binding 刮取 → 改 ModelServing.replicas**  
+> 命名空间：`aasp-scale-demo`  
+> 代码分支：`cursor/aasp-metrics-adapter-04c1`（目录 `aasp-metrics-adapter/`）  
+> 本文以 **MOCK 闭环** 验证为主；文末说明如何切 **真实 AASP API**。
 
 ---
 
-## 0. 前置条件
+## 0. 架构说明（必读）
 
-- 集群已安装 CRD：
-  - `autoscalingpolicies.workload.serving.volcano.sh`
-  - `autoscalingpolicybindings.workload.serving.volcano.sh`
-  - `modelservings.workload.serving.volcano.sh`
-- `kthena-controller-manager` 可运行（避免调度到异常节点）
-- 已有 Adapter 镜像（示例）：
-  - `swr.hcs-lab.ga159arm.com/cce-charts-hcs-lab-a163446a18ae451f91e6083ec1164afe/aasp-metrics-adapter:0.2.0`
-- 本机可执行 `kubectl`；有 Python3 时可先做本地冒烟
-- 代码目录：`aasp-metrics-adapter/`（含 `adapter.py`、`Dockerfile`、`deploy.yaml`）
-
-检查 CRD / 控制器：
-
-```bash
-kubectl get crd | grep -iE 'autoscaling|modelserving|kthena'
-kubectl -n kube-system get deploy kthena-controller-manager
-kubectl -n kube-system get pods -o wide | grep kthena
+```text
+AASP infer-recommendations（或 MOCK 环境变量）
+        │
+        ▼
+ModelServing 每个副本都跑 Adapter
+        │
+        ├─ Lease 选主：仅 Leader 拉数并暴露非 0 的 aasp_predicted_*
+        └─ Follower：不拉 AASP，预测指标报 0（避免 ×N）
+        │
+        ▼
+AutoscalingPolicyBinding.metricEndpoint 刮全部 MS Pod（port 8000 /metrics）
+        │
+        ▼
+Kthena Autoscaler 求和（= 全局峰值）→ 写 ModelServing.spec.replicas
 ```
 
-若控制器 Lease 长时间不刷新，或 Pod 落在坏节点（如 `135.0.0.49` 出现 `runtimeTimeout` / `ContainerCreating`）：
+**不要**再部署独立的 `Deployment/aasp-metrics-adapter` 与 ModelServing **共用**同一个 `LEASE_NAME`，否则 Leader 可能落在 Deployment 上，MS 全是 0，Autoscaler 扩不动。
+
+独立 Deployment 仅适合调试；正式联调/验收时请删除，或设 `LEADER_ELECTION=0` 且换不同 `LEASE_NAME`。
+
+---
+
+## 1. 前置检查
 
 ```bash
-kubectl cordon 135.0.0.49   # 按实际坏节点名调整
-kubectl -n kube-system scale deploy kthena-controller-manager --replicas=1
+# CRD
+kubectl get crd | grep -iE 'autoscalingpolicy|autoscalingpolicybinding|modelserving'
+
+# 控制器（可能有 2 个副本，日志要查对 Pod）
+kubectl -n kube-system get deploy,pods | grep kthena
+
+# Binding 是否只有 metricEndpoint（1.22.1）
+kubectl explain autoscalingpolicybindings.spec.homogeneousTarget.target.metricEndpoint
+```
+
+控制器异常时（Lease 不刷新 / Pod 卡在坏节点）：
+
+```bash
+kubectl -n kube-system get lease | grep -i kthena
 kubectl -n kube-system rollout restart deploy/kthena-controller-manager
-kubectl -n kube-system rollout status deploy/kthena-controller-manager
-kubectl -n kube-system get lease lease.kthena.controller-manager \
-  -o jsonpath='{.spec.holderIdentity} {.spec.renewTime}{"\n"}'
+# 若有坏节点：kubectl cordon <node>
+```
+
+准备镜像（示例，按你环境替换）：
+
+```text
+swr.hcs-lab.ga159arm.com/cce-charts-hcs-lab-a163446a18ae451f91e6083ec1164afe/aasp-metrics-adapter:0.3.0
+```
+
+镜像内须含 `adapter.py` + `leader_election.py`（选主版本）。
+
+获取代码：
+
+```bash
+git clone -b cursor/aasp-metrics-adapter-04c1 https://github.com/Annie-Summer/Kthena.git
+cd Kthena/aasp-metrics-adapter
 ```
 
 ---
 
-## 1. 本地冒烟（可选）
+## 2. 本地冒烟（可选）
 
 ```bash
 cd aasp-metrics-adapter
-
-# 单测
 PYTHONPATH=. python3 -m unittest tests.test_adapter -v
 
-# 启动 MOCK Adapter
-MOCK=1 PROJECT_ID=p SERVICE_GROUP_ID=s REGION=cn-east-204-dev python3 adapter.py
+MOCK=1 MOCK_RPM=100 PROJECT_ID=p SERVICE_GROUP_ID=s REGION=cn-east-204-dev \
+  LEADER_ELECTION=0 python3 adapter.py
 ```
 
 另开终端：
 
 ```bash
-curl -s http://127.0.0.1:8000/metrics
+curl -s http://127.0.0.1:8000/metrics | grep aasp_
 ```
 
-期望包含：
-
-```text
-aasp_predicted_rpm{...} 100.0
-aasp_adapter_up{...} 1
-```
-
-验证完在跑 `adapter.py` 的终端按 `Ctrl+C` 结束。
+期望：`aasp_predicted_rpm ... 100`，`aasp_adapter_is_leader ... 1`（本地关选主时恒为 Leader）。
 
 ---
 
-## 2. 构建镜像（有 Docker 的机器）
-
-> 无 Docker、仅有 `crictl` 时：在其他机器 build/push，或使用已推到 SWR 的镜像。
+## 3. 构建并推送镜像
 
 ```bash
 cd aasp-metrics-adapter
-
-# Dockerfile 要点：chmod + 绝对路径，避免 nobody Permission denied
-# FROM python:3.11-slim
-# WORKDIR /app
-# COPY adapter.py .
-# RUN chmod 644 /app/adapter.py && chmod 755 /app
-# USER nobody
-# CMD ["python", "-u", "/app/adapter.py"]
-
-IMG=swr.hcs-lab.ga159arm.com/cce-charts-hcs-lab-a163446a18ae451f91e6083ec1164afe/aasp-metrics-adapter:0.2.0
+IMG=<你的仓库>/aasp-metrics-adapter:0.3.0   # 或更高版本
 docker build -t "$IMG" .
 docker push "$IMG"
 ```
 
-若仍遇 `Permission denied`，部署时临时加：
-
-```yaml
-securityContext:
-  runAsUser: 0
-```
+无 Docker 时在其他机器 build，或使用已有 SWR 镜像。
 
 ---
 
-## 3. 部署独立 Adapter Deployment（对照用）
+## 4. 准备 deploy.yaml
+
+1. 使用仓库中带选主的 `deploy.yaml`（必须能搜到关键字）：
 
 ```bash
-kubectl create ns aasp-scale-demo --dry-run=client -o yaml | kubectl apply -f -
-
-# 按需修改 deploy.yaml 中镜像名后 apply，或直接用下面清单
+grep -n 'LEADER_ELECTION\|ServiceAccount\|aasp-metrics-leader' deploy.yaml
+# 必须有输出；若为空说明还是旧文件
 ```
 
-示例（MOCK=1）：
+2. 把所有 `<ADAPTER_IMAGE>` 换成真实镜像，**不要**留下占位符。
 
-```bash
-IMAGE=swr.hcs-lab.ga159arm.com/cce-charts-hcs-lab-a163446a18ae451f91e6083ec1164afe/aasp-metrics-adapter:0.2.0
+3. **建议删掉或注释掉** 独立 `Deployment` + `Service` 段，只保留：
 
-cat <<EOF | kubectl apply -f -
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: aasp-metrics-adapter
-  namespace: aasp-scale-demo
-  labels:
-    app: aasp-metrics-adapter
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: aasp-metrics-adapter
-  template:
-    metadata:
-      labels:
-        app: aasp-metrics-adapter
-    spec:
-      securityContext:
-        runAsUser: 0
-      containers:
-        - name: adapter
-          image: ${IMAGE}
-          imagePullPolicy: Always
-          ports:
-            - name: metrics
-              containerPort: 8000
-          env:
-            - name: MOCK
-              value: "1"
-            - name: MOCK_RPM
-              value: "100"
-            - name: MOCK_PROMPT_TPM
-              value: "32000"
-            - name: MOCK_COMPLETION_TPM
-              value: "32000"
-            - name: PROJECT_ID
-              value: "demo-project"
-            - name: SERVICE_GROUP_ID
-              value: "mock-predict-serving"
-            - name: REGION
-              value: "cn-east-204-dev"
-            - name: POLL_SECONDS
-              value: "15"
-            - name: METRICS_PORT
-              value: "8000"
-          readinessProbe:
-            httpGet:
-              path: /metrics
-              port: metrics
-            initialDelaySeconds: 2
-            periodSeconds: 5
-          resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
-              memory: 128Mi
-      imagePullSecrets:
-        - name: default-secret
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: aasp-metrics-adapter
-  namespace: aasp-scale-demo
-spec:
-  selector:
-    app: aasp-metrics-adapter
-  ports:
-    - name: metrics
-      port: 8000
-      targetPort: 8000
-EOF
+   - Namespace  
+   - ServiceAccount / Role / RoleBinding  
+   - Secret（切真 API 时用）  
+   - ModelServing  
+   - AutoscalingPolicy / AutoscalingPolicyBinding  
 
-kubectl -n aasp-scale-demo get pods -l app=aasp-metrics-adapter
-kubectl -n aasp-scale-demo port-forward svc/aasp-metrics-adapter 8000:8000
-# 另开终端
-curl -s http://127.0.0.1:8000/metrics | grep -E 'aasp_predicted_rpm|aasp_adapter_up'
-```
-
-期望：`aasp_predicted_rpm ... 100`，`aasp_adapter_up 1`。
-
-> 注意：Kthena Binding **不会**自动刮这个独立 Deployment；扩缩必须以 **ModelServing Pod** 为指标源。独立 Deployment 仅作对照。
+若保留 Deployment：必须 `LEADER_ELECTION=0` 或 `LEASE_NAME` 与 MS 不同。
 
 ---
 
-## 4. 部署三指标 Policy + Binding
-
-先清理旧的单指标配置（若存在）：
+## 5. 一键部署（MOCK）
 
 ```bash
-kubectl -n aasp-scale-demo delete autoscalingpolicybinding aasp-predictive-binding --ignore-not-found
-kubectl -n aasp-scale-demo delete autoscalingpolicy aasp-predictive-scaling --ignore-not-found
+NS=aasp-scale-demo
+kubectl apply -f deploy.yaml
+
+# 确认 RBAC
+kubectl -n $NS get sa,role,rolebinding | grep aasp
+
+# 若仍存在会抢主的独立 Deployment，删掉：
+kubectl -n $NS delete deploy aasp-metrics-adapter --ignore-not-found
+kubectl -n $NS delete svc aasp-metrics-adapter --ignore-not-found
+
+# 看 MS Pod
+kubectl -n $NS get pods -w
+# 期望：mock-predict-serving-0-infer-0-0  Running 1/1
 ```
 
-创建 multi 策略：
+ModelServing 关键 env 必须包含：
 
-```bash
-cat <<EOF | kubectl apply -f -
-apiVersion: workload.serving.volcano.sh/v1alpha1
-kind: AutoscalingPolicy
-metadata:
-  name: aasp-predictive-scaling-multi
-  namespace: aasp-scale-demo
-spec:
-  metrics:
-    - metricName: aasp_predicted_rpm
-      targetValue: 100
-    - metricName: aasp_predicted_prompt_tpm
-      targetValue: 50000
-    - metricName: aasp_predicted_completion_tpm
-      targetValue: 50000
-  tolerancePercent: 10
-  behavior:
-    scaleUp:
-      stablePolicy:
-        stabilizationWindow: 30s
-        period: 15s
-        percent: 100
-        instances: 2
-        selectPolicy: Or
-      panicPolicy:
-        panicThresholdPercent: 200
-        panicModeHold: 2m
-        period: 15s
-        percent: 100
-    scaleDown:
-      stabilizationWindow: 1m
-      period: 30s
-      percent: 50
-      instances: 1
-      selectPolicy: Or
----
-apiVersion: workload.serving.volcano.sh/v1alpha1
-kind: AutoscalingPolicyBinding
-metadata:
-  name: aasp-predictive-binding-multi
-  namespace: aasp-scale-demo
-spec:
-  policyRef:
-    name: aasp-predictive-scaling-multi
-  homogeneousTarget:
-    minReplicas: 1
-    maxReplicas: 6
-    target:
-      targetRef:
-        apiVersion: workload.serving.volcano.sh/v1alpha1
-        kind: ModelServing
-        name: mock-predict-serving
-      # Leader election: scrape all pods; followers expose 0 → sum == global peak
-      metricEndpoint:
-        port: 8000
-        uri: /metrics
-EOF
-```
+| 变量 | 值 |
+|------|-----|
+| `MOCK` | `1` |
+| `MOCK_RPM` | `100`（基线） |
+| `MOCK_PROMPT_TPM` / `MOCK_COMPLETION_TPM` | 如 `32000` |
+| `LEADER_ELECTION` | `1` |
+| `LEASE_NAME` | `aasp-metrics-leader` |
+| `POD_NAME` / `POD_NAMESPACE` | downward API |
+| `serviceAccountName` | `aasp-metrics-adapter` |
 
-确认：
-
-```bash
-kubectl -n aasp-scale-demo get autoscalingpolicy,autoscalingpolicybinding
-kubectl -n aasp-scale-demo get autoscalingpolicybinding aasp-predictive-binding-multi \
-  -o jsonpath='{.spec.homogeneousTarget.target.metricEndpoint}{"\n"}'
-kubectl -n aasp-scale-demo get role,rolebinding,sa | grep aasp
-```
+Binding：`metricEndpoint.port=8000`，`uri=/metrics`，**不要**再配 `labelSelector`（选主后刮全部即可）。  
+Policy：`targetValue` rpm=100，prompt/completion_tpm=50000；`minReplicas=1`，`maxReplicas=6`。
 
 ---
 
-## 5. 部署 ModelServing（跑 Adapter，供 Kthena 刮取）
-
-先确保 SA/RBAC 已创建（见 `deploy.yaml` 顶部，或）：
+## 6. 验收：选主 + 指标 + Autoscaler 基线
 
 ```bash
-kubectl -n aasp-scale-demo apply -f - <<'EOF'
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: aasp-metrics-adapter
-  namespace: aasp-scale-demo
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: aasp-metrics-leader
-  namespace: aasp-scale-demo
-rules:
-  - apiGroups: ["coordination.k8s.io"]
-    resources: ["leases"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: aasp-metrics-leader
-  namespace: aasp-scale-demo
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: aasp-metrics-leader
-subjects:
-  - kind: ServiceAccount
-    name: aasp-metrics-adapter
-    namespace: aasp-scale-demo
-EOF
+NS=aasp-scale-demo
+
+# 6.1 Lease
+kubectl -n $NS get lease aasp-metrics-leader -o yaml
+kubectl -n $NS get lease aasp-metrics-leader -o jsonpath='{.spec.holderIdentity}{"\n"}'
+# 期望 holder = mock-predict-serving-...（不是已删除的 Deployment Pod）
+
+# 6.2 Pod 指标
+POD=$(kubectl -n $NS get pods -o name | grep mock-predict | head -1)
+kubectl -n $NS port-forward $POD 18000:8000
+# 另开终端：
+curl -s http://127.0.0.1:18000/metrics | grep -E 'aasp_predicted_rpm|aasp_adapter_is_leader|aasp_adapter_up'
 ```
 
-```bash
-IMAGE=swr.hcs-lab.ga159arm.com/cce-charts-hcs-lab-a163446a18ae451f91e6083ec1164afe/aasp-metrics-adapter:0.2.0
-
-kubectl -n aasp-scale-demo delete modelserving mock-predict-serving --ignore-not-found
-
-cat <<EOF | kubectl apply -f -
-apiVersion: workload.serving.volcano.sh/v1alpha1
-kind: ModelServing
-metadata:
-  name: mock-predict-serving
-  namespace: aasp-scale-demo
-spec:
-  replicas: 1
-  recoveryPolicy: None
-  template:
-    roles:
-      - name: infer
-        replicas: 1
-        workerReplicas: 0
-        entryTemplate:
-          spec:
-            serviceAccountName: aasp-metrics-adapter
-            securityContext:
-              runAsUser: 0
-            containers:
-              - name: adapter
-                image: ${IMAGE}
-                imagePullPolicy: Always
-                ports:
-                  - name: metrics
-                    containerPort: 8000
-                env:
-                  - name: MOCK
-                    value: "1"
-                  - name: MOCK_RPM
-                    value: "100"
-                  - name: MOCK_PROMPT_TPM
-                    value: "32000"
-                  - name: MOCK_COMPLETION_TPM
-                    value: "32000"
-                  - name: PROJECT_ID
-                    value: "demo-project"
-                  - name: SERVICE_GROUP_ID
-                    value: "mock-predict-serving"
-                  - name: REGION
-                    value: "cn-east-204-dev"
-                  - name: LEADER_ELECTION
-                    value: "1"
-                  - name: LEASE_NAME
-                    value: "aasp-metrics-leader"
-                  - name: POD_NAME
-                    valueFrom:
-                      fieldRef:
-                        fieldPath: metadata.name
-                  - name: POD_NAMESPACE
-                    valueFrom:
-                      fieldRef:
-                        fieldPath: metadata.namespace
-                resources:
-                  requests:
-                    cpu: "50m"
-                    memory: "64Mi"
-                  limits:
-                    cpu: "200m"
-                    memory: "128Mi"
-            imagePullSecrets:
-              - name: default-secret
-EOF
-
-kubectl -n aasp-scale-demo get pods -w
-```
-
-期望出现：`mock-predict-serving-0-infer-0-0` 且 `1/1 Running`。
-
-### 选主验收
-
-```bash
-kubectl -n aasp-scale-demo get lease aasp-metrics-leader -o yaml
-# holderIdentity 应为某个 Pod 名
-
-curl -s http://127.0.0.1:18000/metrics | grep aasp_adapter_is_leader
-# Leader: aasp_adapter_is_leader ... 1
-# 多副本时，其余 Pod 应为 0，且 predicted_* 为 0
-```
-
-缩容杀掉原 Leader 后，约 `LEASE_DURATION_SECONDS`（默认 15s）内会选出新 Leader，无需手工迁标签。
-
----
-
-## 6. 验收：指标被 Kthena 采到
-
-```bash
-# 若本机 8000 被占用，换 18000
-kubectl -n aasp-scale-demo port-forward pod/mock-predict-serving-0-infer-0-0 18000:8000
-```
-
-另开终端：
-
-```bash
-curl -s http://127.0.0.1:18000/metrics | grep -E 'aasp_predicted_rpm|aasp_adapter_up'
-
-kubectl -n kube-system logs deploy/kthena-controller-manager --tail=40 \
-  | grep -E 'MetricTargets|ReadyInstancesMetrics|recommendedInstances'
-
-kubectl -n aasp-scale-demo get modelserving mock-predict-serving \
-  -o jsonpath='spec={.spec.replicas} status={.status.replicas}{"\n"}'
-```
-
-**通过标准（基线 MOCK_RPM=100）：**
+期望：
 
 ```text
-aasp_predicted_rpm ... 100.0
-aasp_adapter_up ... 1
+aasp_predicted_rpm{...} 100.0
+aasp_adapter_is_leader{...} 1
+aasp_adapter_up{...} 1
+```
 
-MetricTargets: aasp_predicted_rpm=100, prompt_tpm=50000, completion_tpm=50000
-ReadyInstancesMetrics: 含 rpm/prompt/completion 数值（不是 [{}]）
+```bash
+# 6.3 Autoscaler 日志（先找到真正处理 Binding 的那个 controller Pod）
+kubectl -n kube-system get pods | grep kthena-controller-manager
+kubectl -n kube-system logs <controller-pod-B> --tail=50 | grep -E 'ReadyInstancesMetrics|recommendedInstances|connection refused'
+```
+
+期望类似：
+
+```text
+ReadyInstancesMetrics: [{"aasp_predicted_rpm":100,"aasp_predicted_prompt_tpm":32000,"aasp_predicted_completion_tpm":32000}]
 recommendedInstances=1
-spec=1 status=1
 ```
 
-计算公式（选主后求和 = 全局值）：
-
-```text
-desired ≈ max(rpm/100, prompt_tpm/50000, completion_tpm/50000)
-再限制在 [minReplicas, maxReplicas]=[1,6]
+```bash
+kubectl -n $NS get modelserving mock-predict-serving \
+  -o jsonpath='spec={.spec.replicas} status={.status.replicas}{"\n"}'
+# 期望 spec=1 status=1
 ```
-
-> 开启 `LEADER_ELECTION=1` 后：仅 Leader 暴露真实预测值，Follower 为 0；Binding 可刮全部 Pod，求和不再 ×N。  
-> 未开选主且每 Pod 都报同一全局值时：6 Pod × rpm=600 → ReadyInstancesMetrics.rpm=3600。
 
 ---
 
-## 7. 扩容测试（MOCK_RPM=600 → 期望约 6）
+## 7. 扩容测试（MOCK_RPM=100 → 600）
 
-> 不要用「整段替换 env」把 `POD_NAME`/`POD_NAMESPACE`/`LEADER_ELECTION` 冲掉。  
-> 下面用 JSON patch 只改 MOCK 相关项（下标按 section 5 的 env 顺序：0=MOCK … 3=MOCK_COMPLETION_TPM）。
+> **只改 MOCK_RPM 一项**，不要整段替换 env（会冲掉 `POD_NAME` / `LEADER_ELECTION`）。  
+> 按 `deploy.yaml` / 本文 MS 的 env 顺序：下标 `1` = `MOCK_RPM`。
 
 ```bash
-kubectl -n aasp-scale-demo patch modelserving mock-predict-serving --type=json -p='[
+NS=aasp-scale-demo
+kubectl -n $NS patch modelserving mock-predict-serving --type=json -p='[
   {"op":"replace","path":"/spec/template/roles/0/entryTemplate/spec/containers/0/env/1/value","value":"600"}
 ]'
 
 # 重建 Pod 使 env 生效
-kubectl -n aasp-scale-demo delete pod $(kubectl -n aasp-scale-demo get pods -o name | grep mock-predict | tr '\n' ' ')
-kubectl -n aasp-scale-demo get pods -w
+kubectl -n $NS get pods -o name | grep mock-predict | xargs -r kubectl -n $NS delete
+kubectl -n $NS get pods -w
 ```
 
-确认指标与推荐值：
+等待约 30～90 秒后：
 
 ```bash
-kubectl -n aasp-scale-demo port-forward pod/mock-predict-serving-0-infer-0-0 18000:8000
-curl -s http://127.0.0.1:18000/metrics | grep aasp_predicted_rpm
-# 期望 600.0
+kubectl -n kube-system logs <controller-pod-B> --tail=20 | grep ReadyInstancesMetrics
+# 期望 rpm=600（不是 3600）
 
-kubectl -n kube-system logs deploy/kthena-controller-manager --tail=30 \
-  | grep -E 'ReadyInstancesMetrics|recommendedInstances'
-
-kubectl -n aasp-scale-demo get modelserving mock-predict-serving \
+kubectl -n $NS get modelserving mock-predict-serving \
   -o jsonpath='spec={.spec.replicas} status={.status.replicas}{"\n"}'
-kubectl -n aasp-scale-demo get pods | grep mock-predict
+# 期望 spec=6 status=6
+
+kubectl -n $NS get lease aasp-metrics-leader -o jsonpath='{.spec.holderIdentity}{"\n"}'
+kubectl -n $NS get pods | grep mock-predict
 ```
 
-**通过标准：**
+计算公式：`desired ≈ max(600/100, 32000/50000, 32000/50000) = 6`。
 
-- 单副本刚起来时：`600/100=6` → `recommendedInstances` 升向 6  
-- 最终：`spec=6 status=6`，约 6 个 `mock-predict-serving-*-infer-0-0` Pod  
+多副本时抽查：
 
-（开启选主后，扩到 6 时 ReadyInstancesMetrics.rpm 仍应约为 600，而不是 3600。）
+```bash
+for p in $(kubectl -n $NS get pods -o name | grep mock-predict); do
+  echo "=== $p ==="
+  kubectl -n $NS exec ${p#pod/} -- wget -qO- http://127.0.0.1:8000/metrics 2>/dev/null \
+    | grep -E 'aasp_adapter_is_leader|aasp_predicted_rpm' || \
+  kubectl -n $NS exec ${p#pod/} -- python3 -c "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/metrics').read().decode())" \
+    | grep -E 'aasp_adapter_is_leader|aasp_predicted_rpm'
+done
+# 仅一个 is_leader=1 且 rpm=600；其余 is_leader=0 且 rpm=0
+```
 
 ---
 
-## 8. 缩容测试（MOCK_RPM=10 → 期望回到 1）
-
-选主下求和：`10/100=0.1` → 推荐约 1。
+## 8. 缩容测试（MOCK_RPM=600 → 10）
 
 ```bash
-kubectl -n aasp-scale-demo patch modelserving mock-predict-serving --type=json -p='[
-  {"op":"replace","path":"/spec/template/roles/0/entryTemplate/spec/containers/0/env/1/value","value":"10"},
-  {"op":"replace","path":"/spec/template/roles/0/entryTemplate/spec/containers/0/env/2/value","value":"1000"},
-  {"op":"replace","path":"/spec/template/roles/0/entryTemplate/spec/containers/0/env/3/value","value":"1000"}
+NS=aasp-scale-demo
+kubectl -n $NS patch modelserving mock-predict-serving --type=json -p='[
+  {"op":"replace","path":"/spec/template/roles/0/entryTemplate/spec/containers/0/env/1/value","value":"10"}
 ]'
-
-kubectl -n aasp-scale-demo delete pod $(kubectl -n aasp-scale-demo get pods -o name | grep mock-predict | tr '\n' ' ')
-kubectl -n aasp-scale-demo get pods -w
+kubectl -n $NS get pods -o name | grep mock-predict | xargs -r kubectl -n $NS delete
 ```
 
-观察：部分 Pod 进入 `Terminating`，数量逐步减少。缩容有稳定窗口（约 1 分钟量级），需等待。  
-Leader 被删后检查：
+缩容受 `scaleDown.stabilizationWindow` / `percent` 限制，会 **逐步** 降（如 6→3→2→1），通常 1～3 分钟：
+
+```bash
+watch -n 5 "kubectl -n $NS get modelserving mock-predict-serving -o jsonpath='spec={.spec.replicas} status={.status.replicas}{\"\\n\"}'; kubectl -n $NS get pods | grep mock-predict"
+```
+
+最终期望：
+
+```text
+spec=1 status=1
+ReadyInstancesMetrics.rpm=10
+lease holder = mock-predict-serving-0-infer-0-0（或当前唯一 Pod）
+```
+
+---
+
+## 9. MOCK 验收清单
+
+| # | 检查项 | 通过标准 |
+|---|--------|----------|
+| 1 | `deploy.yaml` 含选主字段 | `grep LEADER_ELECTION` 有输出 |
+| 2 | 镜像非占位符 | 不是 `<ADAPTER_IMAGE>` |
+| 3 | 无抢主 Deployment | `get deploy aasp-metrics-adapter` NotFound 或 LEADER_ELECTION=0 |
+| 4 | Lease | holder 为 MS Pod |
+| 5 | `/metrics` | Leader：`rpm` 与 MOCK 一致，`is_leader=1` |
+| 6 | 基线 | rpm=100 → replicas=1 |
+| 7 | 扩容 | rpm=600 → replicas=6，且日志 rpm=600 非 3600 |
+| 8 | 缩容 | rpm=10 → replicas=1 |
+
+全部通过即证明：在 1.22.1（仅 Pod scrape）下，**选主 Adapter + Binding** 可驱动预测扩缩容。
+
+---
+
+## 10. 排障手册（按症状）
+
+### 10.1 `get lease` NotFound
+
+```bash
+grep LEADER_ELECTION deploy.yaml          # 空 → 旧 YAML
+kubectl -n aasp-scale-demo get sa,role    # 无 aasp → 未 apply RBAC
+kubectl -n aasp-scale-demo logs <ms-pod> --tail=50
+# 缺 POD_NAME/POD_NAMESPACE 会直接退出选主
+kubectl -n aasp-scale-demo exec <ms-pod> -- env | grep -E 'LEADER|POD_'
+```
+
+### 10.2 Lease holder 是 Deployment Pod / MS 指标全 0
 
 ```bash
 kubectl -n aasp-scale-demo get lease aasp-metrics-leader -o jsonpath='{.spec.holderIdentity}{"\n"}'
+kubectl -n aasp-scale-demo delete deploy aasp-metrics-adapter --ignore-not-found
+kubectl -n aasp-scale-demo delete pod -l app=aasp-metrics-adapter --ignore-not-found
+kubectl -n aasp-scale-demo get pods -o name | grep mock-predict | xargs kubectl -n aasp-scale-demo delete
 ```
 
-`holderIdentity` 应切到仍存活的 Pod。
+Autoscaler 日志会出现 `ReadyInstancesMetrics: rpm=0`。
+
+### 10.3 `connection refused` 刮 :8000
+
+Pod 刚创建 / 进程未监听。等 Ready 后再看；持续失败则：
 
 ```bash
-curl -s http://127.0.0.1:18000/metrics | grep aasp_predicted_rpm
-# 若 forward 断了，重新 port-forward 后再 curl；期望 10.0
-
-kubectl -n kube-system logs deploy/kthena-controller-manager --tail=20 \
-  | grep -E 'ReadyInstancesMetrics|recommendedInstances'
-
-kubectl -n aasp-scale-demo get modelserving mock-predict-serving \
-  -o jsonpath='spec={.spec.replicas} status={.status.replicas}{"\n"}'
-kubectl -n aasp-scale-demo get pods | grep mock-predict
+kubectl -n aasp-scale-demo describe pod <ms-pod>
+kubectl -n aasp-scale-demo logs <ms-pod>
+kubectl -n aasp-scale-demo exec <ms-pod> -- cat /proc/1/cmdline
 ```
 
-**通过标准：**
+镜像若仍是旧的、或 `Permission denied`，需换可读镜像 / `runAsUser: 0`。
 
-- `recommendedInstances` 降到 1  
-- 最终只剩 1 个 mock-predict Pod，`spec=1 status=1`
+### 10.4 日志里没有 ReadyInstancesMetrics
+
+控制器有 **两个** Pod，处理 Binding 的往往是其中一个：
+
+```bash
+kubectl -n kube-system get pods | grep kthena-controller-manager
+kubectl -n kube-system logs <pod-A> --tail=100 | grep -i binding
+kubectl -n kube-system logs <pod-B> --tail=100 | grep -i ReadyInstances
+```
+
+### 10.5 `ReadyInstancesMetrics: [{}]` 或缺字段
+
+- Binding 端口不是 **8000**  
+- Policy 指标名与 gauge 不一致（须为 `aasp_predicted_rpm` 等）  
+- 刮到了但解析失败  
+
+```bash
+kubectl -n aasp-scale-demo get autoscalingpolicybinding aasp-predictive-binding-multi -o yaml | grep -A5 metricEndpoint
+kubectl -n aasp-scale-demo get autoscalingpolicy aasp-predictive-scaling-multi -o yaml | grep -A20 metrics
+```
+
+### 10.6 扩到 6 但日志 rpm=3600（×N）
+
+选主未生效：所有 Pod 都在报真实全局值。检查：
+
+```bash
+kubectl -n aasp-scale-demo exec <pod> -- env | grep LEADER_ELECTION
+# 各 Pod 的 aasp_adapter_is_leader
+```
+
+确认镜像含 `leader_election.py`，且 `LEADER_ELECTION=1`。
+
+### 10.7 改了 MOCK 指标不变
+
+必须删 Pod 重建；仅 patch ModelServing 不会热更新已跑进程的环境变量。
+
+### 10.8 patch env 后选主坏了
+
+整段替换 `env` 冲掉了 `POD_NAME` fieldRef。只用 json patch 改单个 value（见 §7），或重新 apply 完整 MS YAML。
+
+### 10.9 `spec` 降了但 `status`/Pod 数滞后
+
+缩容是渐进的；`status` 可能短暂不一致。以 `spec.replicas` + 实际 Running Pod 数 + 日志 `recommendedInstances` 为准。
 
 ---
 
-## 9. 验收清单（MOCK 全流程）
+## 11. 下一步：切换真实 AASP API
 
-| # | 项 | 期望 |
-|---|----|------|
-| 1 | Adapter `/metrics` | 有三指标且 `aasp_adapter_up=1` |
-| 2 | Kthena MetricTargets | `rpm` / `prompt_tpm` / `completion_tpm` |
-| 3 | ReadyInstancesMetrics | 非空 `[{}]`，有数值 |
-| 4 | MOCK_RPM=100 | replicas≈1 |
-| 5 | MOCK_RPM=600 | replicas→6 |
-| 6 | MOCK_RPM=10 | replicas→1 |
+MOCK 闭环通过后，把数据源从环境变量改为 AASP HTTP API。
 
-全部通过即证明：在当前 Kthena 版本（仅 Pod `metricEndpoint`）下，用 Adapter 暴露预测指标做弹性扩缩 **可行且可复现**。
-
----
-
-## 10. 切真 API（可选后续）
-
-AASP：
+### 11.1 API 约定
 
 ```text
 GET {BASE_URL}/v1/{PROJECT_ID}/{SERVICE_GROUP_ID}/infer-recommendations
-  ?region=...&start_time=...&end_time=...
+    ?region={REGION}&start_time=...&end_time=...
 Authorization: Bearer {TOKEN}
 ```
 
-Adapter 对 `resources.predictions` 做 **max**，暴露同名 gauge。
+- Beta：`https://apigw-beta.huawei.com`  
+- 生产：`https://apigw.huawei.com`  
+- Adapter 对 `resources.predictions[]` 取窗口 **max**（rpm / prompt_tpm / completion_tpm）
+
+### 11.2 写入 Secret
 
 ```bash
-kubectl -n aasp-scale-demo create secret generic aasp-api-token \
-  --from-literal=token='<TOKEN>' --dry-run=client -o yaml | kubectl apply -f -
+NS=aasp-scale-demo
+kubectl -n $NS create secret generic aasp-api-token \
+  --from-literal=token='<你的 Bearer Token>' \
+  --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-ModelServing env 改为：
+### 11.3 改 ModelServing 环境变量
+
+在 MS 容器 env 中设置（保留选主相关变量）：
+
+| 变量 | 值 |
+|------|-----|
+| `MOCK` | `0` |
+| `BASE_URL` | `https://apigw-beta.huawei.com`（或生产） |
+| `PROJECT_ID` | 真实 project id |
+| `SERVICE_GROUP_ID` | 真实预测单元 id |
+| `REGION` | 如 `cn-east-204-dev` |
+| `TOKEN` | `secretKeyRef: aasp-api-token / token` |
+| `WINDOW_MINUTES` | 默认 `5` |
+| `POLL_SECONDS` | 默认 `15` |
+| `LEADER_ELECTION` | `1`（保持） |
+| `POD_NAME` / `POD_NAMESPACE` | 保持 downward API |
+
+删除或忽略 `MOCK_RPM` 等（`MOCK=0` 时不用）。
+
+示例片段：
+
+```yaml
+env:
+  - name: MOCK
+    value: "0"
+  - name: BASE_URL
+    value: "https://apigw-beta.huawei.com"
+  - name: PROJECT_ID
+    value: "<project_id>"
+  - name: SERVICE_GROUP_ID
+    value: "<service_group_id>"
+  - name: REGION
+    value: "<region>"
+  - name: TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: aasp-api-token
+        key: token
+  - name: LEADER_ELECTION
+    value: "1"
+  - name: LEASE_NAME
+    value: "aasp-metrics-leader"
+  - name: POD_NAME
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.name
+  - name: POD_NAMESPACE
+    valueFrom:
+      fieldRef:
+        fieldPath: metadata.namespace
+```
+
+集群内 Pod 须能访问 `BASE_URL`（出网 / 代理 / 安全组按环境放开）。
+
+### 11.4 重建并验证
+
+```bash
+NS=aasp-scale-demo
+kubectl -n $NS get pods -o name | grep mock-predict | xargs -r kubectl -n $NS delete
+
+kubectl -n $NS logs <ms-pod> --tail=50
+# 期望：updated peaks rpm=... 或明确的 HTTP 错误（便于排障）
+# 不应再出现 mock peaks
+
+kubectl -n $NS port-forward pod/<ms-pod> 18000:8000
+curl -s localhost:18000/metrics | grep aasp_predicted_rpm
+```
+
+`aasp_adapter_up=0` 且保留上次值 → 拉 AASP 失败，看日志里的 HTTP/TOKEN/空 predictions。
+
+### 11.5 校准 targetValue
+
+真实峰值与 MOCK 不同，按单实例容量调整 Policy：
 
 ```text
-MOCK=0
-BASE_URL=https://apigw-beta.huawei.com
-PROJECT_ID=<真实>
-SERVICE_GROUP_ID=<真实>
-REGION=<真实>
-TOKEN 来自 secret aasp-api-token
+desired ≈ max(
+  aasp_predicted_rpm / target_rpm,
+  aasp_predicted_prompt_tpm / target_prompt_tpm,
+  aasp_predicted_completion_tpm / target_completion_tpm
+)
 ```
 
-然后删 Pod 重建，确认 `aasp_adapter_up=1` 且峰值与 API 窗口 max 一致。
+先用较小 `maxReplicas` 观察，再放开。
+
+### 11.6 真 API 验收
+
+| 检查 | 标准 |
+|------|------|
+| 日志 | `updated peaks` 来自 API，非 mock |
+| `/metrics` | 数值随 AASP 窗口变化 |
+| `aasp_adapter_up` | 多数时间为 1 |
+| 仅 Leader 拉 API | Follower 日志有 `skip AASP poll`；AASP QPS ≈ `1/POLL_SECONDS` |
+| 扩缩 | 峰值升高/降低时 replicas 同向变化且无 ×N |
 
 ---
 
-## 11. 常见问题
-
-| 现象 | 原因 / 处理 |
-|------|-------------|
-| `Permission denied: /app/adapter.py` | 镜像 nobody 权限；`runAsUser: 0` 或重建带 chmod 的镜像 |
-| `ImagePullBackOff` | 镜像名 / `default-secret` |
-| `ReadyInstancesMetrics: [{}]` | 刮错端口（应为 8000）或 Pod 无指标 |
-| 仍出现 `aasp_predicted_requests` | 旧 Binding 未删，删掉非 multi 的 Policy/Binding |
-| `currentInstancesCount=6` 但无 Pod | ModelServing status 陈旧 + 控制器未调和；重启控制器并重建 MS |
-| Lease `renewTime` 很久不变 | 控制器丢 Leader；rollout restart，且勿调度到坏节点 |
-| `port-forward ... address already in use` | 换本地端口如 `18000:8000`，或结束旧 forward |
-| 改 MOCK 后指标不变 | 必须删 Pod 重建以加载新 env |
-| rpm 被放大 N 倍 | 多 Pod 同报全局值被求和；只刮一个源或报 总量/N |
-
----
-
-## 12. 清理（可选）
+## 12. 常用命令速查
 
 ```bash
-kubectl delete ns aasp-scale-demo
-# 若曾 cordon 坏节点且已修复：
-# kubectl uncordon 135.0.0.49
+NS=aasp-scale-demo
+
+kubectl -n $NS get modelserving,autoscalingpolicy,autoscalingpolicybinding,lease,pods
+kubectl -n $NS get lease aasp-metrics-leader -o jsonpath='{.spec.holderIdentity}{"\n"}'
+kubectl -n $NS get modelserving mock-predict-serving -o jsonpath='spec={.spec.replicas} status={.status.replicas}{"\n"}'
+
+# 找 Autoscaler 日志
+kubectl -n kube-system get pods | grep kthena-controller-manager
+kubectl -n kube-system logs <pod> --tail=100 | grep -E 'ReadyInstancesMetrics|recommendedInstances|connection refused'
+
+# 清环境（慎用）
+# kubectl delete ns aasp-scale-demo
 ```
 
 ---
 
-## 附录：关键公式与映射
+## 13. 已知限制（1.22.1）
 
-| Adapter 指标 | Policy metricName | 示例 targetValue |
-|--------------|-------------------|------------------|
-| `aasp_predicted_rpm` | 同左 | 100（单实例 RPM） |
-| `aasp_predicted_prompt_tpm` | 同左 | 50000 |
-| `aasp_predicted_completion_tpm` | 同左 | 50000 |
-
-MOCK 联调建议值：
-
-| 场景 | MOCK_RPM | 期望副本（近似） |
-|------|----------|------------------|
-| 基线 | 100 | 1 |
-| 扩容 | 600 | 6（max） |
-| 缩容 | 10 | 1（即使曾有 6 Pod 加总） |
+- 无 Prometheus/AOM 直查；指标必须出现在 ModelServing Pod `/metrics`。  
+- 选主依赖 `coordination.k8s.io/Lease` + RBAC。  
+- Leader 切换有约 `LEASE_DURATION_SECONDS`（默认 15s）空窗，期间可能短暂采到 0。  
+- 升级到社区 1.0.0 类 API（`metricSources.prometheus`）后，可改为 AASP→（可选 Adapter）→Prometheus/AOM→Kthena PromQL，无需 Pod 选主。

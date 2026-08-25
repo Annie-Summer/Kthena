@@ -91,19 +91,12 @@ docker push <registry>/aasp-metrics-adapter:v0.2.0
 
 ## Deploy with Kthena (demo)
 
-1. Replace `<ADAPTER_IMAGE>` in `deploy.yaml`.
-2. Apply (creates SA/RBAC + ModelServing + Policy/Binding).
-3. Start with `MOCK=1`; confirm one pod has `aasp_adapter_is_leader 1`, others `0`.
-4. Switch `MOCK=0`, set `BASE_URL` + `TOKEN` from Secret.
+**完整可复现步骤、排障与切真 AASP：见 [TEST-GUIDE.md](./TEST-GUIDE.md)。**
 
-```bash
-kubectl apply -f deploy.yaml
-kubectl -n aasp-scale-demo get lease aasp-metrics-leader
-kubectl -n aasp-scale-demo port-forward pod/<pod> 8000:8000
-curl -s localhost:8000/metrics | grep aasp_
-```
-
-Binding scrapes all pods (`metricEndpoint` without `labelSelector`). Sum of predicted gauges across Ready pods ≈ global peak.
+1. Replace `<ADAPTER_IMAGE>` in `deploy.yaml`（勿留下占位符）。
+2. Prefer **only ModelServing** for scaling; delete the optional standalone Deployment or set its `LEADER_ELECTION=0` / different `LEASE_NAME`.
+3. Apply SA/RBAC + MS + Policy/Binding; confirm Lease holder is an MS pod.
+4. MOCK scale 100→600→10; then set `MOCK=0` + Secret for real AASP.
 
 ## Wire to autoscaling
 
