@@ -484,32 +484,33 @@ kubectl -n aasp-scale-demo get pods | grep mock-predict
 - 单副本刚起来时：`600/100=6` → `recommendedInstances` 升向 6  
 - 最终：`spec=6 status=6`，约 6 个 `mock-predict-serving-*-infer-0-0` Pod  
 
-（扩到 6 后若日志出现 `rpm=3600`，属 ×N 加总，封顶仍为 max=6，不影响本次扩容验收。）
+（开启选主后，扩到 6 时 ReadyInstancesMetrics.rpm 仍应约为 600，而不是 3600。）
 
 ---
 
 ## 8. 缩容测试（MOCK_RPM=10 → 期望回到 1）
 
-即使 6 副本加总：`6×10/100=0.6` → 推荐约 1。
+选主下求和：`10/100=0.1` → 推荐约 1。
 
 ```bash
 kubectl -n aasp-scale-demo patch modelserving mock-predict-serving --type=json -p='[
-  {"op":"replace","path":"/spec/template/roles/0/entryTemplate/spec/containers/0/env","value":[
-    {"name":"MOCK","value":"1"},
-    {"name":"MOCK_RPM","value":"10"},
-    {"name":"MOCK_PROMPT_TPM","value":"1000"},
-    {"name":"MOCK_COMPLETION_TPM","value":"1000"},
-    {"name":"PROJECT_ID","value":"demo-project"},
-    {"name":"SERVICE_GROUP_ID","value":"mock-predict-serving"},
-    {"name":"REGION","value":"cn-east-204-dev"}
-  ]}
+  {"op":"replace","path":"/spec/template/roles/0/entryTemplate/spec/containers/0/env/1/value","value":"10"},
+  {"op":"replace","path":"/spec/template/roles/0/entryTemplate/spec/containers/0/env/2/value","value":"1000"},
+  {"op":"replace","path":"/spec/template/roles/0/entryTemplate/spec/containers/0/env/3/value","value":"1000"}
 ]'
 
 kubectl -n aasp-scale-demo delete pod $(kubectl -n aasp-scale-demo get pods -o name | grep mock-predict | tr '\n' ' ')
 kubectl -n aasp-scale-demo get pods -w
 ```
 
-观察：部分 Pod 进入 `Terminating`，数量逐步减少。缩容有稳定窗口（约 1 分钟量级），需等待。
+观察：部分 Pod 进入 `Terminating`，数量逐步减少。缩容有稳定窗口（约 1 分钟量级），需等待。  
+Leader 被删后检查：
+
+```bash
+kubectl -n aasp-scale-demo get lease aasp-metrics-leader -o jsonpath='{.spec.holderIdentity}{"\n"}'
+```
+
+`holderIdentity` 应切到仍存活的 Pod。
 
 ```bash
 curl -s http://127.0.0.1:18000/metrics | grep aasp_predicted_rpm
