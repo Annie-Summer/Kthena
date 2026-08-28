@@ -1,10 +1,14 @@
 # aasp-scale-demo: mock-mode adapter + Kthena policy/binding
 # Leader election: every ModelServing pod can run the adapter; only the Lease
 # holder exposes non-zero predicted gauges (followers expose 0 → no ×N).
+#
+# Do NOT add a standalone Deployment/Service of the adapter with the same
+# LEASE_NAME — it can steal leadership and leave ModelServing metrics at 0.
+#
 # Usage:
-#   1) build/push image, replace <ADAPTER_IMAGE>
+#   1) set image below (or replace if using another tag)
 #   2) kubectl apply -f deploy.yaml
-#   3) curl metrics via port-forward; watch ModelServing replicas
+#   3) port-forward the ModelServing pod; watch replicas
 ---
 apiVersion: v1
 kind: Namespace
@@ -50,98 +54,6 @@ type: Opaque
 stringData:
   token: "replace-me"
 ---
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: aasp-metrics-adapter
-  namespace: aasp-scale-demo
-  labels:
-    app: aasp-metrics-adapter
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: aasp-metrics-adapter
-  template:
-    metadata:
-      labels:
-        app: aasp-metrics-adapter
-        aasp-metrics: "true"
-    spec:
-      serviceAccountName: aasp-metrics-adapter
-      containers:
-        - name: adapter
-          image: <ADAPTER_IMAGE>
-          imagePullPolicy: Always
-          ports:
-            - name: metrics
-              containerPort: 8000
-          env:
-            - name: MOCK
-              value: "1"
-            - name: MOCK_RPM
-              value: "100"
-            - name: MOCK_PROMPT_TPM
-              value: "32000"
-            - name: MOCK_COMPLETION_TPM
-              value: "32000"
-            - name: PROJECT_ID
-              value: "demo-project"
-            - name: SERVICE_GROUP_ID
-              value: "mock-predict-serving"
-            - name: REGION
-              value: "cn-east-204-dev"
-            - name: POLL_SECONDS
-              value: "15"
-            - name: METRICS_PORT
-              value: "8000"
-            - name: LEADER_ELECTION
-              value: "1"
-            - name: LEASE_NAME
-              value: "aasp-metrics-leader"
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            # Real mode: set MOCK=0 and uncomment:
-            # - name: BASE_URL
-            #   value: "https://apigw-beta.huawei.com"
-            # - name: TOKEN
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: aasp-api-token
-            #       key: token
-          readinessProbe:
-            httpGet:
-              path: /metrics
-              port: metrics
-            initialDelaySeconds: 2
-            periodSeconds: 5
-          resources:
-            requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
-              memory: 128Mi
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: aasp-metrics-adapter
-  namespace: aasp-scale-demo
-spec:
-  selector:
-    app: aasp-metrics-adapter
-  ports:
-    - name: metrics
-      port: 8000
-      targetPort: 8000
----
 # ModelServing runs the adapter on every replica. Leader election ensures only
 # one pod exposes non-zero predicted gauges; Binding scrapes all pods.
 apiVersion: workload.serving.volcano.sh/v1alpha1
@@ -162,7 +74,7 @@ spec:
             serviceAccountName: aasp-metrics-adapter
             containers:
               - name: adapter
-                image: <ADAPTER_IMAGE>
+                image: swr.hcs-lab.ga159arm.com/cce-charts-hcs-lab-a163446a18ae451f91e6083ec1164afe/aasp-metrics-adapter:0.3.0
                 ports:
                   - name: metrics
                     containerPort: 8000
