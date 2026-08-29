@@ -2,6 +2,8 @@
 
 ## 1. 总览架构（一屏）
 
+PNG：[`e2e-overview.png`](./e2e-overview.png)
+
 ```text
  模型+场景+QoS
         │
