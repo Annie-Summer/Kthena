@@ -33,7 +33,7 @@ kthena-controller-manager 汇总 → 写 ModelServing.spec.replicas
 1. **不要**再部署独立 `Deployment/aasp-metrics-adapter`（会抢同一 Lease）。  
 2. 继续用 1.22.1 的 Policy + Binding + `metricEndpoint`，不用 Prometheus `metricSources`。  
 3. 集群内 Pod 必须能访问 AASP 地址（如 `100.94.170.238:8086`）。  
-4. 镜像必须是支持 `INSTANCE_ID` / `AUTH_HEADER` 的新构建（建议 `0.4.0+`），旧 `0.3.0` 不够。
+4. 镜像必须是支持 lab 响应解析的新构建（建议 **`0.4.1+`**：`prediction` map + `prompt_token`；`0.4.0` 不够）。
 
 ---
 
