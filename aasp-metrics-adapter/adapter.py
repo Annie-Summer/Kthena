@@ -24,10 +24,18 @@ LOG = logging.getLogger("aasp-metrics-adapter")
 
 BASE_URL = os.environ.get("BASE_URL", "https://apigw-beta.huawei.com").rstrip("/")
 PROJECT_ID = os.environ.get("PROJECT_ID", "")
+# Path style:
+# - INSTANCE_ID set  → /v1/{PROJECT_ID}/instance/{INSTANCE_ID}/infer-recommendations
+# - else SERVICE_GROUP_ID → /v1/{PROJECT_ID}/{SERVICE_GROUP_ID}/infer-recommendations
+INSTANCE_ID = os.environ.get("INSTANCE_ID", "")
 SERVICE_GROUP_ID = os.environ.get("SERVICE_GROUP_ID", "")
 REGION = os.environ.get("REGION", "")
 TOKEN = os.environ.get("TOKEN", "")
+# Auth: "x-auth-token" (X-Auth-Token header) or "bearer" (Authorization: Bearer …)
+AUTH_HEADER = os.environ.get("AUTH_HEADER", "bearer").strip().lower()
 WINDOW_MINUTES = int(os.environ.get("WINDOW_MINUTES", "5"))
+# forward: [now, now+WINDOW); backward: [now-WINDOW, now] (matches many lab curl examples)
+TIME_RANGE_MODE = os.environ.get("TIME_RANGE_MODE", "forward").strip().lower()
 POLL_SECONDS = int(os.environ.get("POLL_SECONDS", "15"))
 METRICS_PORT = int(os.environ.get("METRICS_PORT", "8000"))
 HTTP_TIMEOUT = float(os.environ.get("HTTP_TIMEOUT", "10"))
@@ -73,19 +81,35 @@ def fmt_time(dt: datetime) -> str:
 
 
 def build_url(now: datetime | None = None) -> str:
-    if not PROJECT_ID or not SERVICE_GROUP_ID:
-        raise ValueError("PROJECT_ID and SERVICE_GROUP_ID are required")
+    if not PROJECT_ID:
+        raise ValueError("PROJECT_ID is required")
+    if not INSTANCE_ID and not SERVICE_GROUP_ID:
+        raise ValueError("INSTANCE_ID or SERVICE_GROUP_ID is required")
     now = now or datetime.now(timezone.utc).replace(tzinfo=None)
-    start = fmt_time(now)
-    end = fmt_time(now + timedelta(minutes=WINDOW_MINUTES))
+    if TIME_RANGE_MODE in ("backward", "past", "lookback"):
+        start = fmt_time(now - timedelta(minutes=WINDOW_MINUTES))
+        end = fmt_time(now)
+    else:
+        start = fmt_time(now)
+        end = fmt_time(now + timedelta(minutes=WINDOW_MINUTES))
     # Keep timestamps unescaped to match API docs (…T08:00:00).
     query = f"start_time={start}&end_time={end}"
     if REGION:
         query += f"&region={REGION}"
-    return (
-        f"{BASE_URL}/v1/{PROJECT_ID}/{SERVICE_GROUP_ID}/infer-recommendations"
-        f"?{query}"
-    )
+    if INSTANCE_ID:
+        path = f"/v1/{PROJECT_ID}/instance/{INSTANCE_ID}/infer-recommendations"
+    else:
+        path = f"/v1/{PROJECT_ID}/{SERVICE_GROUP_ID}/infer-recommendations"
+    return f"{BASE_URL}{path}?{query}"
+
+
+def auth_headers() -> dict[str, str]:
+    headers = {"Accept": "application/json"}
+    if AUTH_HEADER in ("x-auth-token", "x_auth_token", "token"):
+        headers["X-Auth-Token"] = TOKEN
+    else:
+        headers["Authorization"] = f"Bearer {TOKEN}"
+    return headers
 
 
 def pick_resources(body: dict[str, Any]) -> dict[str, Any] | None:
@@ -167,14 +191,7 @@ def fetch_once() -> None:
         apply_peaks(0, 0, 0, error=str(exc))
         return
 
-    req = Request(
-        url,
-        headers={
-            "Authorization": f"Bearer {TOKEN}",
-            "Accept": "application/json",
-        },
-        method="GET",
-    )
+    req = Request(url, headers=auth_headers(), method="GET")
     try:
         with urlopen(req, timeout=HTTP_TIMEOUT) as resp:
             raw = resp.read().decode("utf-8")
@@ -236,8 +253,9 @@ def render_metrics() -> bytes:
         rpm = prompt = completion = total = latency = 0.0
         up = 0
 
+    unit_id = INSTANCE_ID or SERVICE_GROUP_ID
     labels = (
-        f'service_group_id="{SERVICE_GROUP_ID}",'
+        f'service_group_id="{unit_id}",'
         f'region="{REGION}",'
         f'pod="{POD_NAME}"'
     )

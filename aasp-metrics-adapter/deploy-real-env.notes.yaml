@@ -1,0 +1,32 @@
+# Real AASP cutover for ModelServing (replace MOCK env block with this).
+# Prerequisites:
+#   1) Rebuild/push adapter image that includes INSTANCE_ID + X-Auth-Token support
+#   2) Cluster pods can reach BASE_URL (e.g. http://100.94.170.238:8088)
+#   3) Secret aasp-api-token holds a valid X-Auth-Token value
+#
+# Example mapping from curl:
+#   curl -H "X-Auth-Token: ..." \
+#     "http://100.94.170.238:8088/v1/<PROJECT_ID>/instance/<INSTANCE_ID>/infer-recommendations?..."
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aasp-api-token
+  namespace: aasp-scale-demo
+type: Opaque
+stringData:
+  token: "PUT_REAL_X_AUTH_TOKEN_HERE"
+---
+# Patch-style reference for ModelServing container env (keep LEADER_ELECTION / POD_*):
+# MOCK=0
+# BASE_URL=http://100.94.170.238:8088
+# PROJECT_ID=5dfed145e29a43f7b42c5ecc17d4d98c
+# INSTANCE_ID=922ae983-addb-46e8-8096-5092de62af13
+# REGION=cn-north-5
+# AUTH_HEADER=x-auth-token
+# TIME_RANGE_MODE=backward
+# WINDOW_MINUTES=60
+# TOKEN from secret aasp-api-token
+# LEADER_ELECTION=1
+# LEASE_NAME=aasp-metrics-leader
+# POD_NAME / POD_NAMESPACE downward API

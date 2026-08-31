@@ -37,6 +37,31 @@ class AdapterTests(unittest.TestCase):
         self.assertIn("end_time=2026-03-30T08:05:00", url)
         self.assertIn("region=cn-east-204-dev", url)
 
+    def test_build_url_instance_path_and_backward_range(self):
+        mod = load_adapter(
+            {
+                "INSTANCE_ID": "922ae983-addb-46e8-8096-5092de62af13",
+                "SERVICE_GROUP_ID": "",
+                "TIME_RANGE_MODE": "backward",
+                "WINDOW_MINUTES": "60",
+                "REGION": "cn-north-5",
+            }
+        )
+        url = mod.build_url(datetime(2026, 8, 31, 18, 0, 0))
+        self.assertIn(
+            "/v1/proj-1/instance/922ae983-addb-46e8-8096-5092de62af13/infer-recommendations?",
+            url,
+        )
+        self.assertIn("start_time=2026-08-31T17:00:00", url)
+        self.assertIn("end_time=2026-08-31T18:00:00", url)
+        self.assertIn("region=cn-north-5", url)
+
+    def test_auth_headers_x_auth_token(self):
+        mod = load_adapter({"AUTH_HEADER": "x-auth-token", "TOKEN": "abc"})
+        headers = mod.auth_headers()
+        self.assertEqual(headers.get("X-Auth-Token"), "abc")
+        self.assertNotIn("Authorization", headers)
+
     def test_pick_resources_object(self):
         mod = load_adapter()
         body = {"resources": {"service_group_id": "sg-1", "predictions": []}}

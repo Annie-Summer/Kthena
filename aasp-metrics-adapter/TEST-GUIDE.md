@@ -384,15 +384,40 @@ MOCK 闭环通过后，把数据源从环境变量改为 AASP HTTP API。
 
 ### 11.1 API 约定
 
+两种路径（由环境变量选择）：
+
 ```text
-GET {BASE_URL}/v1/{PROJECT_ID}/{SERVICE_GROUP_ID}/infer-recommendations
-    ?region={REGION}&start_time=...&end_time=...
+# 旧/网关形态（Bearer）
+GET {BASE_URL}/v1/{PROJECT_ID}/{SERVICE_GROUP_ID}/infer-recommendations?...
 Authorization: Bearer {TOKEN}
+
+# 实验室/instance 形态（与下列 curl 一致）
+GET {BASE_URL}/v1/{PROJECT_ID}/instance/{INSTANCE_ID}/infer-recommendations
+    ?region=...&start_time=...&end_time=...
+X-Auth-Token: {TOKEN}
 ```
 
-- Beta：`https://apigw-beta.huawei.com`  
-- 生产：`https://apigw.huawei.com`  
-- Adapter 对 `resources.predictions[]` 取窗口 **max**（rpm / prompt_tpm / completion_tpm）
+对应 curl 示例：
+
+```bash
+curl -kv -H "X-Auth-Token: <token>" \
+  "http://100.94.170.238:8088/v1/<PROJECT_ID>/instance/<INSTANCE_ID>/infer-recommendations?start_time=...&end_time=...&region=cn-north-5"
+```
+
+Adapter 环境变量映射：
+
+| curl / API | Adapter env |
+|------------|-------------|
+| `http://100.94.170.238:8088` | `BASE_URL` |
+| path 中 project id | `PROJECT_ID` |
+| path 中 instance uuid | `INSTANCE_ID` |
+| `region=` | `REGION` |
+| `X-Auth-Token` | `AUTH_HEADER=x-auth-token` + `TOKEN` |
+| 时间窗 | `TIME_RANGE_MODE=backward` + `WINDOW_MINUTES`（滚动窗口；不必手写绝对时间） |
+
+Adapter 对 `resources.predictions[]` 取窗口 **max**（rpm / prompt_tpm / completion_tpm）。
+
+须使用包含 `INSTANCE_ID` / `AUTH_HEADER` 支持的镜像（重新 build 推送，勿继续用仅 Bearer 旧镜像）。
 
 ### 11.2 写入 Secret
 
