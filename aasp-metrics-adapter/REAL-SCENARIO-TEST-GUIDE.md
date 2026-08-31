@@ -98,7 +98,7 @@ cd Kthena/aasp-metrics-adapter
 # 确认能力
 grep -n 'INSTANCE_ID\|AUTH_HEADER\|x-auth-token' adapter.py
 
-IMG=swr.hcs-lab.ga159arm.com/cce-charts-hcs-lab-a163446a18ae451f91e6083ec1164afe/aasp-metrics-adapter:0.4.0
+IMG=swr.hcs-lab.ga159arm.com/cce-charts-hcs-lab-a163446a18ae451f91e6083ec1164afe/aasp-metrics-adapter:0.4.1
 docker build -t "$IMG" .
 docker push "$IMG"
 ```
@@ -127,7 +127,7 @@ kubectl get ns aasp-scale-demo
 
 使用仓库中 **无独立 Deployment/Service** 的版本。将 ModelServing 容器改为：
 
-- `image: .../aasp-metrics-adapter:0.4.0`
+- `image: .../aasp-metrics-adapter:0.4.1`
 - `MOCK=0` + 真 API 环境变量（见下）
 
 完整 ModelServing 示例（其余 Namespace/SA/Role/RoleBinding/Policy/Binding 与仓库 `deploy.yaml` 相同）：
@@ -151,7 +151,7 @@ spec:
             serviceAccountName: aasp-metrics-adapter
             containers:
               - name: adapter
-                image: swr.hcs-lab.ga159arm.com/cce-charts-hcs-lab-a163446a18ae451f91e6083ec1164afe/aasp-metrics-adapter:0.4.0
+                image: swr.hcs-lab.ga159arm.com/cce-charts-hcs-lab-a163446a18ae451f91e6083ec1164afe/aasp-metrics-adapter:0.4.1
                 imagePullPolicy: Always
                 ports:
                   - name: metrics
@@ -392,7 +392,7 @@ kubectl -n "$NS" get lease aasp-metrics-leader -o jsonpath='{.spec.holderIdentit
 | # | 检查项 | 通过标准 |
 |---|--------|----------|
 | 1 | 节点 curl 最近 10 分钟 | 200 + predictions 有数 |
-| 2 | 镜像 | `0.4.0+`，含 instance 路径与 X-Auth-Token |
+| 2 | 镜像 | `0.4.1+`，含 lab `prediction` map 与 `prompt_token` 解析 |
 | 3 | 无独立 Deployment | `get deploy` 为空 |
 | 4 | RBAC | sa/role/rolebinding 存在 |
 | 5 | Adapter Lease | holder 为 MS Pod |
