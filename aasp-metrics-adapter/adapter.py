@@ -112,31 +112,74 @@ def auth_headers() -> dict[str, str]:
     return headers
 
 
-def pick_resources(body: dict[str, Any]) -> dict[str, Any] | None:
-    """Normalize resources which may be an object or a list."""
+def _prediction_list(resource: dict[str, Any]) -> list[Any]:
+    """Return prediction points from a resource object (supports singular/plural)."""
+    for key in ("predictions", "prediction"):
+        raw = resource.get(key)
+        if isinstance(raw, list):
+            return raw
+    return []
+
+
+def pick_resource_blocks(body: dict[str, Any]) -> list[dict[str, Any]]:
+    """Normalize resources into a list of resource dicts.
+
+    Supported shapes:
+    - resources: { predictions: [...] }                 (flat object)
+    - resources: [ {region, predictions|prediction}, … ]
+    - resources: { "<group_id>": { prediction: [...] }, … }  (lab instance API)
+    """
     res = body.get("resources")
     if res is None:
-        return None
+        return []
     if isinstance(res, list):
-        if not res:
-            return None
+        items = [x for x in res if isinstance(x, dict)]
         if REGION:
-            for item in res:
-                if isinstance(item, dict) and item.get("region") == REGION:
-                    return item
-        first = res[0]
-        return first if isinstance(first, dict) else None
+            matched = [x for x in items if x.get("region") == REGION]
+            if matched:
+                return matched
+        return items
     if isinstance(res, dict):
-        return res
-    return None
+        # Flat resource object (has prediction points at this level).
+        if "predictions" in res or "prediction" in res:
+            return [res]
+        # Map of service-group-id → resource object.
+        blocks: list[dict[str, Any]] = []
+        for value in res.values():
+            if not isinstance(value, dict):
+                continue
+            if REGION and value.get("region") and value.get("region") != REGION:
+                continue
+            blocks.append(value)
+        return blocks
+    return []
 
 
-def max_from_predictions(predictions: list[Any], key: str) -> float:
+def pick_resources(body: dict[str, Any]) -> dict[str, Any] | None:
+    """Backward-compatible helper: first normalized resource block, if any."""
+    blocks = pick_resource_blocks(body)
+    return blocks[0] if blocks else None
+
+
+def collect_predictions(body: dict[str, Any]) -> list[Any]:
+    """Flatten prediction points across all resource blocks."""
+    out: list[Any] = []
+    for block in pick_resource_blocks(body):
+        out.extend(_prediction_list(block))
+    return out
+
+
+def max_from_predictions(predictions: list[Any], *keys: str) -> float:
+    """Max over prediction points; try several field names (e.g. prompt_tpm / prompt_token)."""
     values: list[float] = []
     for item in predictions:
         if not isinstance(item, dict):
             continue
-        raw = item.get(key)
+        raw = None
+        for key in keys:
+            if key in item and item.get(key) is not None:
+                raw = item.get(key)
+                break
         if raw is None:
             continue
         try:
@@ -183,12 +226,14 @@ def fetch_once() -> None:
 
     if not TOKEN:
         apply_peaks(0, 0, 0, error="TOKEN is empty")
+        LOG.warning("fetch failed: TOKEN is empty")
         return
 
     try:
         url = build_url()
     except ValueError as exc:
         apply_peaks(0, 0, 0, error=str(exc))
+        LOG.warning("fetch failed: %s", exc)
         return
 
     req = Request(url, headers=auth_headers(), method="GET")
@@ -207,25 +252,25 @@ def fetch_once() -> None:
         return
 
     if isinstance(body, dict) and body.get("error_code"):
-        apply_peaks(
-            0,
-            0,
-            0,
-            error=f"{body.get('error_code')}: {body.get('error_msg')}",
-        )
+        err = f"{body.get('error_code')}: {body.get('error_msg')}"
+        apply_peaks(0, 0, 0, error=err)
+        LOG.warning("fetch failed: %s", err)
         return
 
-    resources = pick_resources(body if isinstance(body, dict) else {})
-    predictions = (resources or {}).get("predictions") or []
-    if not isinstance(predictions, list) or not predictions:
+    predictions = collect_predictions(body if isinstance(body, dict) else {})
+    if not predictions:
         apply_peaks(0, 0, 0, error="empty predictions")
+        LOG.warning("fetch failed: empty predictions (check resources shape)")
         return
 
     rpm = max_from_predictions(predictions, "rpm")
-    prompt = max_from_predictions(predictions, "prompt_tpm")
-    completion = max_from_predictions(predictions, "completion_tpm")
-    total = max_from_predictions(predictions, "total_tpm")
-    latency = max_from_predictions(predictions, "latency")
+    # Lab API uses prompt_token / completion_token; docs/gateway may use *_tpm.
+    prompt = max_from_predictions(predictions, "prompt_tpm", "prompt_token")
+    completion = max_from_predictions(predictions, "completion_tpm", "completion_token")
+    total = max_from_predictions(predictions, "total_tpm", "total_token")
+    if total <= 0 and (prompt > 0 or completion > 0):
+        total = prompt + completion
+    latency = max_from_predictions(predictions, "latency", "latency_ms")
     apply_peaks(rpm, prompt, completion, total, latency)
     LOG.info(
         "updated peaks rpm=%s prompt_tpm=%s completion_tpm=%s points=%d",

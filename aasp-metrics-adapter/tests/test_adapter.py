@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 import os
 import unittest
 from datetime import datetime, timezone
@@ -88,6 +89,104 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(mod.max_from_predictions(preds, "rpm"), 40.0)
         self.assertEqual(mod.max_from_predictions(preds, "prompt_tpm"), 9.0)
         self.assertEqual(mod.max_from_predictions(preds, "missing"), 0.0)
+
+    def test_max_from_predictions_token_aliases(self):
+        mod = load_adapter()
+        preds = [{"rpm": 1, "prompt_token": 100, "completion_token": 50}]
+        self.assertEqual(
+            mod.max_from_predictions(preds, "prompt_tpm", "prompt_token"), 100.0
+        )
+        self.assertEqual(
+            mod.max_from_predictions(preds, "completion_tpm", "completion_token"), 50.0
+        )
+
+    def test_collect_predictions_lab_map_shape(self):
+        mod = load_adapter({"REGION": "cn-north-5"})
+        body = {
+            "resources": {
+                "infer_service_group_id_test": {
+                    "region": "cn-north-5",
+                    "prediction": [
+                        {
+                            "rpm": 2976.7,
+                            "prompt_token": 100709.3,
+                            "completion_token": 49938.1,
+                        }
+                    ],
+                },
+                "service_group_id_test2": {
+                    "region": "cn-north-5",
+                    "prediction": [
+                        {
+                            "rpm": 2992.7,
+                            "prompt_token": 102282.0,
+                            "completion_token": 51007.0,
+                        }
+                    ],
+                },
+            }
+        }
+        preds = mod.collect_predictions(body)
+        self.assertEqual(len(preds), 2)
+        self.assertEqual(mod.max_from_predictions(preds, "rpm"), 2992.7)
+        self.assertEqual(
+            mod.max_from_predictions(preds, "prompt_tpm", "prompt_token"), 102282.0
+        )
+
+    def test_fetch_once_parses_lab_response(self):
+        mod = load_adapter(
+            {
+                "INSTANCE_ID": "922ae983-addb-46e8-8096-5092de62af13",
+                "SERVICE_GROUP_ID": "",
+                "AUTH_HEADER": "x-auth-token",
+                "REGION": "cn-north-5",
+                "TIME_RANGE_MODE": "backward",
+            }
+        )
+        payload = {
+            "resources": {
+                "g1": {
+                    "region": "cn-north-5",
+                    "prediction": [
+                        {
+                            "rpm": 2976.7,
+                            "prompt_token": 100.0,
+                            "completion_token": 50.0,
+                        }
+                    ],
+                },
+                "g2": {
+                    "region": "cn-north-5",
+                    "prediction": [
+                        {
+                            "rpm": 2992.7,
+                            "prompt_token": 200.0,
+                            "completion_token": 80.0,
+                        }
+                    ],
+                },
+            }
+        }
+        raw = json.dumps(payload).encode("utf-8")
+
+        class FakeResp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return raw
+
+        with mock.patch.object(mod, "urlopen", return_value=FakeResp()):
+            mod.fetch_once()
+        with mod.state_lock:
+            self.assertEqual(mod.state["adapter_up"], 1)
+            self.assertEqual(mod.state["rpm"], 2992.7)
+            self.assertEqual(mod.state["prompt_tpm"], 200.0)
+            self.assertEqual(mod.state["completion_tpm"], 80.0)
+            self.assertEqual(mod.state["total_tpm"], 280.0)
 
     def test_fetch_mock_updates_state(self):
         mod = load_adapter(

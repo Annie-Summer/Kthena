@@ -74,7 +74,7 @@ curl -kv -H "X-Auth-Token: $token" \
   "http://100.94.170.238:8086/v1/5dfed145e29a43f7b42c5ecc17d4d98c/instance/922ae983-addb-46e8-8096-5092de62af13/infer-recommendations?start_time=${START}&end_time=${END}&region=cn-north-5"
 ```
 
-**通过标准：** HTTP 200，body 含 `resources.predictions`（或文档约定字段），能看到 `rpm` / `prompt_tpm` / `completion_tpm` 等。  
+**通过标准：** HTTP 200，body 含预测点（例如 `resources.<group>.prediction[]`，字段可能是 `rpm` / `prompt_token` / `completion_token`；旧文档也可能是 `predictions` + `*_tpm`）。Adapter `0.4.1+` 两种形状都支持，并对各 group 取 max。  
 此步失败则先别部署 Adapter。
 
 记录你将使用的常量：
@@ -285,7 +285,7 @@ kubectl -n "$NS" logs "$POD" --tail=50
 | `TOKEN is empty` | Secret / secretKeyRef |
 | `HTTP 401/403` | Token 无效或过期 |
 | `URLError` / timed out | 网络到 `100.94.170.238:8086` |
-| `empty predictions` | 时间窗无数据；加大 `WINDOW_MINUTES` 或核对 region/instance |
+| `empty predictions` | 响应结构不匹配或时间窗无数据；确认是 `prediction`/`predictions`；加大 `WINDOW_MINUTES` |
 | `forbidden` leases | SA/Role 缺失 |
 
 ### 5.4 `/metrics` 内容
