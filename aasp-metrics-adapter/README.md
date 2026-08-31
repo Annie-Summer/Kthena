@@ -91,12 +91,15 @@ docker push <registry>/aasp-metrics-adapter:v0.2.0
 
 ## Deploy with Kthena (demo)
 
-**完整可复现步骤、排障与切真 AASP：见 [TEST-GUIDE.md](./TEST-GUIDE.md)。**
+**完整可复现步骤：**
 
-1. Replace `<ADAPTER_IMAGE>` in `deploy.yaml`（勿留下占位符）。
-2. Prefer **only ModelServing** for scaling; delete the optional standalone Deployment or set its `LEADER_ELECTION=0` / different `LEASE_NAME`.
+- MOCK 联调 / 排障：见 [TEST-GUIDE.md](./TEST-GUIDE.md)
+- **真 AASP 实际场景测试：见 [REAL-SCENARIO-TEST-GUIDE.md](./REAL-SCENARIO-TEST-GUIDE.md)**
+
+1. Replace image in `deploy.yaml` with a build that supports `INSTANCE_ID` + `AUTH_HEADER=x-auth-token` (e.g. `0.4.0+`).
+2. Prefer **only ModelServing** for scaling; do not deploy a standalone adapter Deployment on the same Lease.
 3. Apply SA/RBAC + MS + Policy/Binding; confirm Lease holder is an MS pod.
-4. MOCK scale 100→600→10; then set `MOCK=0` + Secret for real AASP.
+4. For real API: `MOCK=0`, `BASE_URL`, `INSTANCE_ID`, `AUTH_HEADER=x-auth-token`, Secret token; then follow REAL-SCENARIO-TEST-GUIDE.md.
 
 ## Wire to autoscaling
 
