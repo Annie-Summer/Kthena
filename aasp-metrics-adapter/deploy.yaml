@@ -54,6 +54,8 @@ metadata:
 type: Opaque
 stringData:
   token: "replace-me"
+  # Optional: enable Adapter IAM auto-refresh (also set IAM_* env on ModelServing)
+  # iam-password: "replace-me"
 ---
 # ModelServing runs the adapter on every replica. Leader election ensures only
 # one pod exposes non-zero predicted gauges; Binding scrapes all pods.

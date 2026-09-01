@@ -48,7 +48,7 @@ Peak strategy: window max over `predictions` (not `score`, until that field is d
 | `PROJECT_ID` | yes* | | path project id |
 | `SERVICE_GROUP_ID` | yes* | | prediction unit id |
 | `REGION` | recommended | | query region |
-| `TOKEN` | yes* | | bearer token |
+| `TOKEN` | yes* | | initial token (manual mode; also seed for auto mode) |
 | `WINDOW_MINUTES` | no | `5` | `end_time - start_time` |
 | `POLL_SECONDS` | no | `15` | poll interval |
 | `METRICS_PORT` | no | `8000` | `/metrics` port |
@@ -60,8 +60,26 @@ Peak strategy: window max over `predictions` (not `score`, until that field is d
 | `LEASE_RENEW_SECONDS` | no | `5` | renew interval |
 | `POD_NAME` | yes if election | | downward API `metadata.name` |
 | `POD_NAMESPACE` | yes if election | | downward API `metadata.namespace` |
+| `IAM_AUTH_URL` | for auto | Huawei IAM tokens URL | `…/v3/auth/tokens?nocatalog=true` |
+| `IAM_USER` / `IAM_PASSWORD` / `IAM_DOMAIN` | for auto | | password login |
+| `IAM_PROJECT_NAME` or `IAM_PROJECT_ID` | for auto | | token scope |
+| `IAM_REFRESH_SKEW_SECONDS` | no | `300` | refresh if expiry within N seconds |
 
-\* Not required when `MOCK=1`.
+\* Not required when `MOCK=1`. With IAM auto-refresh configured, `TOKEN` may be empty (Adapter will login), but seeding an initial token is still fine.
+
+## Token modes
+
+1. **Manual only:** set `TOKEN` (Secret). On expiry, update Secret and recreate pods.  
+2. **Auto re-login (optional):** also set `IAM_*`. On AASP **401/403**, Adapter calls IAM, stores new token **in memory**, retries once (no pod restart). Also refreshes when `expires_at` is within `IAM_REFRESH_SKEW_SECONDS`.
+
+```bash
+# Auto mode example (do not commit real passwords)
+AUTH_HEADER=x-auth-token \
+IAM_AUTH_URL='https://iam.myhuaweicloud.com/v3/auth/tokens?nocatalog=true' \
+IAM_DOMAIN=... IAM_USER=... IAM_PASSWORD=... IAM_PROJECT_NAME=cn-north-5 \
+BASE_URL=... PROJECT_ID=... INSTANCE_ID=... REGION=cn-north-5 \
+python adapter.py
+```
 
 ## Local run
 

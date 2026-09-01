@@ -98,10 +98,10 @@ stringData:
 
 | 项 | 说明 |
 |----|------|
-| **作用** | 存放 AASP 的 `X-Auth-Token` / Bearer Token |
-| **真 API 时** | 把 `replace-me` 换成真实 Token；ModelServing 用 `secretKeyRef` 注入 `TOKEN` |
-| **MOCK 时** | 可不使用；当前仓库 MOCK 段甚至可不引用该 Secret |
-| **注意** | `stringData` 写入后 etcd 中仍是 base64；不要把 Token 提交进 Git |
+| **作用** | 存放 AASP 的 `X-Auth-Token` / Bearer Token；可选存放 IAM 密码供自动重登 |
+| **真 API 时** | `token`：可选手填初始票；`iam-password`：启用 Adapter 内 401 自动重登时使用 |
+| **MOCK 时** | 可不使用 |
+| **注意** | 不要把 Token/密码提交进 Git；自动重登只更新进程内存，不写回 Secret |
 
 仓库默认 YAML 的 ModelServing MOCK 段**未**挂载该 Secret；真 API 部署需在容器 env 增加：
 

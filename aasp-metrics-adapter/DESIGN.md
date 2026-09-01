@@ -152,8 +152,11 @@ Adapter 归一化要点：
 ### 3.4 网络与凭证
 
 - 集群 Pod 必须能直达 `BASE_URL`（VPC 互通 / 正确入口 IP；代理不通时不要强行走坏代理）。  
-- Token 放在 Secret（如 `aasp-api-token`），以 env `TOKEN` 注入；`AUTH_HEADER` 只表示头模式，不是 Token 本身。  
-- 镜像需含 instance 路径 + 实验室响应解析（建议 **0.4.1+**）。
+- **Token 两种模式：**
+  1. **手动：** Secret 注入 `TOKEN`；过期后更新 Secret 并重建 Pod。  
+  2. **自动重登（可选）：** 同时配置 `IAM_AUTH_URL` / `IAM_USER` / `IAM_PASSWORD` / `IAM_DOMAIN` + `IAM_PROJECT_NAME|ID`。AASP 返回 401/403 时 Adapter 调 IAM `POST /v3/auth/tokens`，从响应头 `X-Subject-Token` 取新票写入内存并重试一次；临近 `expires_at` 也会预刷新。未配置 IAM 时行为与手动模式完全一致。  
+- `AUTH_HEADER` 只表示头模式，不是 Token 本身。  
+- 镜像需含 instance 路径 + 实验室响应解析 + IAM 刷新（建议 **0.5.0+**）。
 
 ### 3.5 为何由 Adapter 拉，而不是控制器直连 AASP
 

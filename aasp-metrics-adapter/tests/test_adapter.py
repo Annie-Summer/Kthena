@@ -21,6 +21,12 @@ def load_adapter(env: dict[str, str] | None = None):
         "MOCK": "0",
         "LEADER_ELECTION": "0",
         "POD_NAME": "test-pod",
+        "IAM_AUTH_URL": "https://iam.myhuaweicloud.com/v3/auth/tokens?nocatalog=true",
+        "IAM_USER": "",
+        "IAM_PASSWORD": "",
+        "IAM_DOMAIN": "",
+        "IAM_PROJECT_NAME": "",
+        "IAM_PROJECT_ID": "",
     }
     base.update(env)
     with mock.patch.dict(os.environ, base, clear=False):
@@ -62,6 +68,151 @@ class AdapterTests(unittest.TestCase):
         headers = mod.auth_headers()
         self.assertEqual(headers.get("X-Auth-Token"), "abc")
         self.assertNotIn("Authorization", headers)
+
+    def test_iam_auto_refresh_disabled_without_password(self):
+        mod = load_adapter({"IAM_USER": "u", "IAM_DOMAIN": "d", "IAM_PASSWORD": ""})
+        self.assertFalse(mod.iam_auto_refresh_enabled())
+
+    def test_iam_auto_refresh_enabled_with_project_name(self):
+        mod = load_adapter(
+            {
+                "IAM_AUTH_URL": "https://iam.example/v3/auth/tokens",
+                "IAM_USER": "u",
+                "IAM_PASSWORD": "p",
+                "IAM_DOMAIN": "d",
+                "IAM_PROJECT_NAME": "cn-north-5",
+            }
+        )
+        self.assertTrue(mod.iam_auto_refresh_enabled())
+        body = mod.build_iam_auth_body()
+        self.assertEqual(body["auth"]["scope"]["project"]["name"], "cn-north-5")
+
+    def test_fetch_iam_token_reads_subject_header(self):
+        mod = load_adapter(
+            {
+                "IAM_AUTH_URL": "https://iam.example/v3/auth/tokens",
+                "IAM_USER": "u",
+                "IAM_PASSWORD": "p",
+                "IAM_DOMAIN": "d",
+                "IAM_PROJECT_ID": "proj-1",
+            }
+        )
+
+        class FakeResp:
+            headers = {"X-Subject-Token": "new-token-xyz"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps(
+                    {"token": {"expires_at": "2099-01-01T00:00:00.000000Z"}}
+                ).encode()
+
+        with mock.patch.object(mod, "urlopen", return_value=FakeResp()):
+            token, exp = mod.fetch_iam_token()
+        self.assertEqual(token, "new-token-xyz")
+        self.assertIsNotNone(exp)
+
+    def test_fetch_once_401_refreshes_and_retries(self):
+        from urllib.error import HTTPError
+
+        mod = load_adapter(
+            {
+                "AUTH_HEADER": "x-auth-token",
+                "TOKEN": "expired-token",
+                "IAM_AUTH_URL": "https://iam.example/v3/auth/tokens",
+                "IAM_USER": "u",
+                "IAM_PASSWORD": "p",
+                "IAM_DOMAIN": "d",
+                "IAM_PROJECT_NAME": "cn-north-5",
+                "INSTANCE_ID": "inst-1",
+                "SERVICE_GROUP_ID": "",
+            }
+        )
+        ok_body = {
+            "resources": {
+                "g1": {
+                    "region": "cn-east-204-dev",
+                    "prediction": [
+                        {"rpm": 42.0, "prompt_token": 1.0, "completion_token": 2.0}
+                    ],
+                }
+            }
+        }
+
+        class FakeIAMResp:
+            headers = {"X-Subject-Token": "fresh-token"}
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return b'{"token":{"expires_at":"2099-01-01T00:00:00.000000Z"}}'
+
+        class FakeAASPOk:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return json.dumps(ok_body).encode()
+
+        aasp_calls = {"n": 0}
+
+        def fake_urlopen(req, timeout=0):  # noqa: ARG001
+            url = getattr(req, "full_url", None) or req.get_full_url()
+            if "iam.example" in url:
+                return FakeIAMResp()
+            aasp_calls["n"] += 1
+            if aasp_calls["n"] == 1:
+                err = HTTPError(url, 401, "Unauthorized", hdrs=None, fp=None)
+
+                def _read():
+                    return b"token expired"
+
+                err.read = _read  # type: ignore[method-assign]
+                raise err
+            return FakeAASPOk()
+
+        with mock.patch.object(mod, "urlopen", side_effect=fake_urlopen):
+            mod.fetch_once()
+        with mod.state_lock:
+            self.assertEqual(mod.state["adapter_up"], 1)
+            self.assertEqual(mod.state["rpm"], 42.0)
+        self.assertEqual(mod.get_runtime_token(), "fresh-token")
+        self.assertEqual(aasp_calls["n"], 2)
+
+    def test_manual_mode_401_does_not_call_iam(self):
+        mod = load_adapter(
+            {
+                "AUTH_HEADER": "x-auth-token",
+                "TOKEN": "only-manual",
+                "IAM_PASSWORD": "",
+            }
+        )
+        from urllib.error import HTTPError
+
+        def fake_urlopen(req, timeout=0):  # noqa: ARG001
+            url = getattr(req, "full_url", None) or req.get_full_url()
+            err = HTTPError(url, 401, "Unauthorized", hdrs=None, fp=None)
+            err.read = lambda: b"nope"  # type: ignore[method-assign]
+            raise err
+
+        with mock.patch.object(mod, "urlopen", side_effect=fake_urlopen):
+            mod.fetch_once()
+        with mod.state_lock:
+            self.assertEqual(mod.state["adapter_up"], 0)
+            self.assertIn("HTTP 401", mod.state["last_error"])
+        self.assertEqual(mod.get_runtime_token(), "only-manual")
 
     def test_pick_resources_object(self):
         mod = load_adapter()

@@ -45,6 +45,19 @@ MOCK_RPM = float(os.environ.get("MOCK_RPM", "100"))
 MOCK_PROMPT_TPM = float(os.environ.get("MOCK_PROMPT_TPM", "32"))
 MOCK_COMPLETION_TPM = float(os.environ.get("MOCK_COMPLETION_TPM", "32"))
 
+# Optional IAM password login for automatic token refresh on 401 (manual TOKEN still supported).
+# Enable when IAM_AUTH_URL + IAM_USER + IAM_PASSWORD + IAM_DOMAIN + project name/id are set.
+IAM_AUTH_URL = os.environ.get(
+    "IAM_AUTH_URL", "https://iam.myhuaweicloud.com/v3/auth/tokens?nocatalog=true"
+).strip()
+IAM_USER = os.environ.get("IAM_USER", "").strip()
+IAM_PASSWORD = os.environ.get("IAM_PASSWORD", "")
+IAM_DOMAIN = os.environ.get("IAM_DOMAIN", "").strip()
+IAM_PROJECT_NAME = os.environ.get("IAM_PROJECT_NAME", "").strip()
+IAM_PROJECT_ID = os.environ.get("IAM_PROJECT_ID", "").strip()
+IAM_REFRESH_SKEW_SECONDS = int(os.environ.get("IAM_REFRESH_SKEW_SECONDS", "300"))
+IAM_HTTP_TIMEOUT = float(os.environ.get("IAM_HTTP_TIMEOUT", "15"))
+
 # Leader election: only the leader polls AASP and exposes non-zero predicted metrics.
 LEADER_ELECTION = os.environ.get("LEADER_ELECTION", "0") == "1"
 LEASE_NAME = os.environ.get("LEASE_NAME", "aasp-metrics-leader")
@@ -65,6 +78,11 @@ state: dict[str, Any] = {
     "adapter_up": 0,
 }
 
+# Runtime token (may be refreshed in-process without pod restart).
+_token_lock = threading.Lock()
+_runtime_token = TOKEN
+_token_expires_at: datetime | None = None
+
 # Set in main(); None means "always leader" (LEADER_ELECTION=0).
 _election: LeaseLeaderElection | None = None
 
@@ -73,6 +91,142 @@ def is_leader() -> bool:
     if _election is None:
         return True
     return _election.is_leader()
+
+
+def iam_auto_refresh_enabled() -> bool:
+    """True when IAM password credentials are configured for auto re-login."""
+    if not (IAM_AUTH_URL and IAM_USER and IAM_PASSWORD and IAM_DOMAIN):
+        return False
+    return bool(IAM_PROJECT_NAME or IAM_PROJECT_ID)
+
+
+def get_runtime_token() -> str:
+    with _token_lock:
+        return _runtime_token
+
+
+def set_runtime_token(token: str, expires_at: datetime | None = None) -> None:
+    global _runtime_token, _token_expires_at
+    with _token_lock:
+        _runtime_token = token
+        _token_expires_at = expires_at
+
+
+def _parse_expires_at(raw: str | None) -> datetime | None:
+    if not raw or not isinstance(raw, str):
+        return None
+    text = raw.strip()
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def build_iam_auth_body() -> dict[str, Any]:
+    user: dict[str, Any] = {
+        "name": IAM_USER,
+        "password": IAM_PASSWORD,
+        "domain": {"name": IAM_DOMAIN},
+    }
+    if IAM_PROJECT_ID:
+        scope: dict[str, Any] = {"project": {"id": IAM_PROJECT_ID}}
+    else:
+        scope = {"project": {"name": IAM_PROJECT_NAME}}
+    return {
+        "auth": {
+            "identity": {
+                "methods": ["password"],
+                "password": {"user": user},
+            },
+            "scope": scope,
+        }
+    }
+
+
+def fetch_iam_token() -> tuple[str, datetime | None]:
+    """POST IAM /v3/auth/tokens; return (token, expires_at_utc_or_none)."""
+    if not iam_auto_refresh_enabled():
+        raise RuntimeError("IAM auto-refresh is not configured")
+    payload = json.dumps(build_iam_auth_body()).encode("utf-8")
+    req = Request(
+        IAM_AUTH_URL,
+        data=payload,
+        method="POST",
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+    )
+    try:
+        with urlopen(req, timeout=IAM_HTTP_TIMEOUT) as resp:
+            token = (
+                resp.headers.get("X-Subject-Token")
+                or resp.headers.get("x-subject-token")
+                or ""
+            ).strip()
+            body_raw = resp.read().decode("utf-8", errors="replace")
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"IAM HTTP {exc.code}: {detail}") from exc
+    except (URLError, TimeoutError, OSError) as exc:
+        raise RuntimeError(f"IAM request failed: {exc}") from exc
+
+    if not token:
+        raise RuntimeError("IAM response missing X-Subject-Token header")
+
+    expires_at = None
+    if body_raw:
+        try:
+            body = json.loads(body_raw)
+            if isinstance(body, dict):
+                tok = body.get("token")
+                if isinstance(tok, dict):
+                    expires_at = _parse_expires_at(tok.get("expires_at"))
+        except json.JSONDecodeError:
+            pass
+    return token, expires_at
+
+
+def refresh_runtime_token(*, reason: str) -> bool:
+    """Fetch a new IAM token into memory. Returns True on success."""
+    if not iam_auto_refresh_enabled():
+        return False
+    try:
+        token, expires_at = fetch_iam_token()
+    except Exception as exc:
+        LOG.warning("IAM token refresh failed (%s): %s", reason, exc)
+        return False
+    set_runtime_token(token, expires_at)
+    exp = expires_at.isoformat() if expires_at else "unknown"
+    LOG.info("IAM token refreshed (%s); expires_at=%s len=%d", reason, exp, len(token))
+    return True
+
+
+def ensure_runtime_token(*, force: bool = False) -> str:
+    """
+    Return a usable token.
+    - Manual mode: env/Secret TOKEN (optionally already set in memory).
+    - Auto mode: login if missing, forced, or near expiry.
+    """
+    token = get_runtime_token()
+    if not iam_auto_refresh_enabled():
+        return token
+
+    need_refresh = force or not token
+    if not need_refresh:
+        with _token_lock:
+            exp = _token_expires_at
+        if exp is not None:
+            skew = timedelta(seconds=max(IAM_REFRESH_SKEW_SECONDS, 0))
+            if datetime.now(timezone.utc) >= (exp - skew):
+                need_refresh = True
+
+    if need_refresh:
+        refresh_runtime_token(reason="ensure" if not force else "forced")
+        token = get_runtime_token()
+    return token
 
 
 def fmt_time(dt: datetime) -> str:
@@ -103,12 +257,13 @@ def build_url(now: datetime | None = None) -> str:
     return f"{BASE_URL}{path}?{query}"
 
 
-def auth_headers() -> dict[str, str]:
+def auth_headers(token: str | None = None) -> dict[str, str]:
+    value = token if token is not None else get_runtime_token()
     headers = {"Accept": "application/json"}
     if AUTH_HEADER in ("x-auth-token", "x_auth_token", "token"):
-        headers["X-Auth-Token"] = TOKEN
+        headers["X-Auth-Token"] = value
     else:
-        headers["Authorization"] = f"Bearer {TOKEN}"
+        headers["Authorization"] = f"Bearer {value}"
     return headers
 
 
@@ -213,6 +368,16 @@ def apply_peaks(
         state["adapter_up"] = 1
 
 
+def _http_get_json(url: str, token: str) -> dict[str, Any]:
+    req = Request(url, headers=auth_headers(token), method="GET")
+    with urlopen(req, timeout=HTTP_TIMEOUT) as resp:
+        raw = resp.read().decode("utf-8")
+        body = json.loads(raw)
+    if not isinstance(body, dict):
+        raise ValueError("AASP response is not a JSON object")
+    return body
+
+
 def fetch_once() -> None:
     if MOCK:
         apply_peaks(MOCK_RPM, MOCK_PROMPT_TPM, MOCK_COMPLETION_TPM, MOCK_PROMPT_TPM + MOCK_COMPLETION_TPM)
@@ -224,9 +389,16 @@ def fetch_once() -> None:
         )
         return
 
-    if not TOKEN:
+    token = ensure_runtime_token()
+    if not token:
+        # Auto mode with empty seed: try one login before failing.
+        if iam_auto_refresh_enabled() and refresh_runtime_token(reason="empty-token"):
+            token = get_runtime_token()
+    if not token:
         apply_peaks(0, 0, 0, error="TOKEN is empty")
-        LOG.warning("fetch failed: TOKEN is empty")
+        LOG.warning(
+            "fetch failed: TOKEN is empty (set TOKEN and/or IAM_* for auto-refresh)"
+        )
         return
 
     try:
@@ -236,28 +408,52 @@ def fetch_once() -> None:
         LOG.warning("fetch failed: %s", exc)
         return
 
-    req = Request(url, headers=auth_headers(), method="GET")
     try:
-        with urlopen(req, timeout=HTTP_TIMEOUT) as resp:
-            raw = resp.read().decode("utf-8")
-            body = json.loads(raw)
+        body = _http_get_json(url, token)
     except HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")
-        apply_peaks(0, 0, 0, error=f"HTTP {exc.code}: {detail}")
-        LOG.warning("fetch failed: HTTP %s %s", exc.code, detail)
-        return
-    except (URLError, TimeoutError, json.JSONDecodeError, OSError) as exc:
+        if exc.code in (401, 403) and iam_auto_refresh_enabled():
+            LOG.warning(
+                "AASP HTTP %s; attempting IAM re-login then one retry", exc.code
+            )
+            if refresh_runtime_token(reason=f"aasp-http-{exc.code}"):
+                try:
+                    body = _http_get_json(url, get_runtime_token())
+                except HTTPError as retry_exc:
+                    detail = retry_exc.read().decode("utf-8", errors="replace")
+                    apply_peaks(
+                        0, 0, 0, error=f"HTTP {retry_exc.code}: {detail}"
+                    )
+                    LOG.warning(
+                        "fetch failed after IAM refresh: HTTP %s %s",
+                        retry_exc.code,
+                        detail,
+                    )
+                    return
+                except (URLError, TimeoutError, json.JSONDecodeError, OSError, ValueError) as retry_exc:
+                    apply_peaks(0, 0, 0, error=str(retry_exc))
+                    LOG.warning("fetch failed after IAM refresh: %s", retry_exc)
+                    return
+            else:
+                apply_peaks(0, 0, 0, error=f"HTTP {exc.code}: {detail}")
+                LOG.warning("fetch failed: HTTP %s %s", exc.code, detail)
+                return
+        else:
+            apply_peaks(0, 0, 0, error=f"HTTP {exc.code}: {detail}")
+            LOG.warning("fetch failed: HTTP %s %s", exc.code, detail)
+            return
+    except (URLError, TimeoutError, json.JSONDecodeError, OSError, ValueError) as exc:
         apply_peaks(0, 0, 0, error=str(exc))
         LOG.warning("fetch failed: %s", exc)
         return
 
-    if isinstance(body, dict) and body.get("error_code"):
+    if body.get("error_code"):
         err = f"{body.get('error_code')}: {body.get('error_msg')}"
         apply_peaks(0, 0, 0, error=err)
         LOG.warning("fetch failed: %s", err)
         return
 
-    predictions = collect_predictions(body if isinstance(body, dict) else {})
+    predictions = collect_predictions(body)
     if not predictions:
         apply_peaks(0, 0, 0, error="empty predictions")
         LOG.warning("fetch failed: empty predictions (check resources shape)")
@@ -379,13 +575,15 @@ def main() -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
     LOG.info(
-        "starting adapter mock=%s port=%s poll=%ss window=%sm base=%s leader_election=%s",
+        "starting adapter mock=%s port=%s poll=%ss window=%sm base=%s "
+        "leader_election=%s iam_auto_refresh=%s",
         MOCK,
         METRICS_PORT,
         POLL_SECONDS,
         WINDOW_MINUTES,
         BASE_URL,
         LEADER_ELECTION,
+        iam_auto_refresh_enabled(),
     )
 
     if LEADER_ELECTION:
