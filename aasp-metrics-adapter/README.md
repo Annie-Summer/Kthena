@@ -1,6 +1,8 @@
 # AASP Metrics Adapter
 
-Polls Huawei AASP `infer-recommendations` API, takes **max** over `resources.predictions`, and exposes Prometheus gauges for Kthena Autoscaler (`metricEndpoint` Pod scrape).
+Polls Huawei AASP `infer-recommendations` API, takes **max** over prediction points, and exposes Prometheus gauges for Kthena Autoscaler (`metricEndpoint` Pod scrape).
+
+**Design (architecture, leader election rationale, Kthena scaling):** see [DESIGN.md](./DESIGN.md).
 
 ## Leader election (recommended)
 
