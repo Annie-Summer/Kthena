@@ -234,6 +234,7 @@ kubectl -n "$NS" exec "$POD" -- env | grep -E '^IAM_|^AUTH_HEADER|^TOKEN' | sed 
 ## 相关文件
 
 - 实现：`adapter.py`（`iam_auto_refresh_enabled` / `fetch_iam_token` / 401 重试）  
+- **完整样例（Secret + ModelServing）：** [`deploy-mode-b.example.yaml`](./deploy-mode-b.example.yaml)  
 - 示例注释：`deploy-real-env.notes.yaml`  
 - 真机步骤：`REAL-SCENARIO-TEST-GUIDE.md` §4.2  
 - 设计背景：`DESIGN.md` §3.4  

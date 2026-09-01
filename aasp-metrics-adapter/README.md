@@ -4,7 +4,8 @@ Polls Huawei AASP `infer-recommendations` API, takes **max** over prediction poi
 
 **Design (architecture, leader election rationale, Kthena scaling):** see [DESIGN.md](./DESIGN.md).  
 **deploy.yaml resource-by-resource:** see [DEPLOY.md](./DEPLOY.md).  
-**Token manual vs IAM auto re-login:** see [TOKEN-MODES.md](./TOKEN-MODES.md).
+**Token manual vs IAM auto re-login:** see [TOKEN-MODES.md](./TOKEN-MODES.md).  
+**Mode B full Secret + ModelServing sample:** see [deploy-mode-b.example.yaml](./deploy-mode-b.example.yaml).
 
 ## Leader election (recommended)
 
