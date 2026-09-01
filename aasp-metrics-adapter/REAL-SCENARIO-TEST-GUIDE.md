@@ -231,6 +231,35 @@ kubectl -n "$NS" get deploy
 # 期望：No resources found
 ```
 
+#### 可选：IAM 401 自动重登（无需因 Token 过期滚 Pod）
+
+在 Secret 增加密码，并在 ModelServing 增加 `IAM_*`（镜像需含该能力，建议 `0.5.0+`）：
+
+```bash
+kubectl -n "$NS" create secret generic aasp-api-token \
+  --from-literal=token="$token" \
+  --from-literal=iam-password="$IAM_PASSWORD" \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+```yaml
+- name: IAM_AUTH_URL
+  value: "https://iam.myhuaweicloud.com/v3/auth/tokens?nocatalog=true"
+- name: IAM_DOMAIN
+  value: "<账号域名>"
+- name: IAM_USER
+  value: "<IAM用户名>"
+- name: IAM_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: aasp-api-token
+      key: iam-password
+- name: IAM_PROJECT_NAME
+  value: "cn-north-5"   # 或改用 IAM_PROJECT_ID
+```
+
+未配置 `IAM_PASSWORD` 时行为与「仅手填 TOKEN」完全一致。配置后遇 AASP 401/403 会自动换票并重试；日志可见 `IAM token refreshed`。
+
 ### 4.3 等待 Pod Ready
 
 ```bash
