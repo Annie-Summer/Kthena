@@ -143,17 +143,35 @@ spec:
 | `workerReplicas: 0` | 无额外 worker；本 demo 每 Group 基本 1 个 entry Pod |
 | `recoveryPolicy: None` | 不启用额外恢复策略（按环境可改） |
 
-### 6.2 容器与选主相关 env
+### 6.2 容器与选主 / 鉴权相关 env
 
 | 配置 | 作用 |
 |------|------|
 | `serviceAccountName: aasp-metrics-adapter` | 使用带 Lease 权限的身份 |
 | `containerPort: 8000` / name `metrics` | 供 Binding `metricEndpoint` 刮取 |
-| `MOCK=1` + `MOCK_*` | 离线演示；真 API 改为 `MOCK=0` + `BASE_URL` / `INSTANCE_ID` / `AUTH_HEADER` 等 |
+| `MOCK=1` + `MOCK_*` | 离线演示；真 API 改为 `MOCK=0` + 下列真机参数 |
+| `BASE_URL` | AASP 服务根地址（如 `http://52.170.215.202:8088`） |
+| `PROJECT_ID` / `INSTANCE_ID` / `REGION` | 拼 AASP URL；`INSTANCE_ID` 走 instance 路径 |
+| `AUTH_HEADER` | `x-auth-token` → 请求头 `X-Auth-Token`；`bearer` → `Authorization: Bearer` |
+| `TIME_RANGE_MODE` / `WINDOW_MINUTES` | `forward`/`backward` + 窗口分钟数，决定预测时间窗 |
+| `POLL_SECONDS` / `METRICS_PORT` | 拉取间隔；指标端口（默认 8000） |
+| **模式 A** `TOKEN`（Secret `token`） | 手填/注入的初始 X-Auth-Token；过期需更新 Secret 并重建 Pod |
+| **模式 B** `IAM_AUTH_URL` | IAM 换票地址（`…/v3/auth/tokens?nocatalog=true`；HCS 用实验室地址） |
+| **模式 B** `IAM_DOMAIN` | IAM 用户所属账号（租户）名 |
+| **模式 B** `IAM_USER` | IAM 用户名 |
+| **模式 B** `IAM_PASSWORD`（Secret `iam-password`） | IAM 用户密码；配齐后启用 401 自动重登 |
+| **模式 B** `IAM_PROJECT_NAME` 或 `IAM_PROJECT_ID` | Token scope（项目名或项目 UUID，二选一） |
+| **模式 B** `IAM_REFRESH_SKEW_SECONDS` | 可选；默认 300，过期前 N 秒预刷新 |
 | `LEADER_ELECTION=1` | 开启 Lease 选主 |
 | `LEASE_NAME=aasp-metrics-leader` | 与其它 Adapter **勿冲突**的 Lease 名 |
 | `POD_NAME` / `POD_NAMESPACE` | Downward API，选主 identity |
 | `imagePullSecrets: default-secret` | 拉私有仓库镜像（集群需已有同名 Secret） |
+
+模式说明：
+
+- **只配 `TOKEN`、不配 `IAM_PASSWORD`** → 模式 A（手动）。  
+- **`IAM_*` 配齐（含密码 + 项目）** → 模式 B；AASP 401/403 时进程内换票并重试，一般无需因过期滚 Pod。  
+- 模式 B 仍可保留 `TOKEN` 作启动种子。完整样例见 [`deploy-mode-b.example.yaml`](./deploy-mode-b.example.yaml)、[`TOKEN-MODES.md`](./TOKEN-MODES.md)。
 
 ### 6.3 为何是 ModelServing 而不是 Deployment
 
