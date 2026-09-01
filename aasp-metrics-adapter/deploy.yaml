@@ -1,0 +1,175 @@
+# aasp-scale-demo: mock-mode adapter + Kthena policy/binding
+# Resource-by-resource explanation: see DEPLOY.md
+# Leader election: every ModelServing pod can run the adapter; only the Lease
+# holder exposes non-zero predicted gauges (followers expose 0 → no ×N).
+#
+# Do NOT add a standalone Deployment/Service of the adapter with the same
+# LEASE_NAME — it can steal leadership and leave ModelServing metrics at 0.
+#
+# Usage:
+#   1) set image below (or replace if using another tag)
+#   2) kubectl apply -f deploy.yaml
+#   3) port-forward the ModelServing pod; watch replicas
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aasp-scale-demo
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aasp-metrics-adapter
+  namespace: aasp-scale-demo
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: aasp-metrics-leader
+  namespace: aasp-scale-demo
+rules:
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: aasp-metrics-leader
+  namespace: aasp-scale-demo
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: aasp-metrics-leader
+subjects:
+  - kind: ServiceAccount
+    name: aasp-metrics-adapter
+    namespace: aasp-scale-demo
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aasp-api-token
+  namespace: aasp-scale-demo
+type: Opaque
+stringData:
+  token: "replace-me"
+  # Optional: enable Adapter IAM auto-refresh (also set IAM_* env on ModelServing)
+  # iam-password: "replace-me"
+---
+# ModelServing runs the adapter on every replica. Leader election ensures only
+# one pod exposes non-zero predicted gauges; Binding scrapes all pods.
+apiVersion: workload.serving.volcano.sh/v1alpha1
+kind: ModelServing
+metadata:
+  name: mock-predict-serving
+  namespace: aasp-scale-demo
+spec:
+  replicas: 1
+  recoveryPolicy: None
+  template:
+    roles:
+      - name: infer
+        replicas: 1
+        workerReplicas: 0
+        entryTemplate:
+          spec:
+            serviceAccountName: aasp-metrics-adapter
+            containers:
+              - name: adapter
+                image: swr.hcs-lab.ga159arm.com/cce-charts-hcs-lab-a163446a18ae451f91e6083ec1164afe/aasp-metrics-adapter:0.3.0
+                ports:
+                  - name: metrics
+                    containerPort: 8000
+                env:
+                  - name: MOCK
+                    value: "1"
+                  - name: MOCK_RPM
+                    value: "100"
+                  - name: MOCK_PROMPT_TPM
+                    value: "32000"
+                  - name: MOCK_COMPLETION_TPM
+                    value: "32000"
+                  - name: PROJECT_ID
+                    value: "demo-project"
+                  - name: SERVICE_GROUP_ID
+                    value: "mock-predict-serving"
+                  - name: REGION
+                    value: "cn-east-204-dev"
+                  - name: LEADER_ELECTION
+                    value: "1"
+                  - name: LEASE_NAME
+                    value: "aasp-metrics-leader"
+                  - name: POD_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.name
+                  - name: POD_NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+                  limits:
+                    cpu: 200m
+                    memory: 128Mi
+            imagePullSecrets:
+              - name: default-secret
+---
+apiVersion: workload.serving.volcano.sh/v1alpha1
+kind: AutoscalingPolicy
+metadata:
+  name: aasp-predictive-scaling-multi
+  namespace: aasp-scale-demo
+spec:
+  metrics:
+    - metricName: aasp_predicted_rpm
+      targetValue: 100
+    - metricName: aasp_predicted_prompt_tpm
+      targetValue: 50000
+    - metricName: aasp_predicted_completion_tpm
+      targetValue: 50000
+  tolerancePercent: 10
+  behavior:
+    scaleUp:
+      stablePolicy:
+        stabilizationWindow: 30s
+        period: 15s
+        percent: 100
+        instances: 2
+        selectPolicy: Or
+      panicPolicy:
+        panicThresholdPercent: 200
+        panicModeHold: 2m
+        period: 15s
+        percent: 100
+    scaleDown:
+      stabilizationWindow: 1m
+      period: 30s
+      percent: 50
+      instances: 1
+      selectPolicy: Or
+---
+apiVersion: workload.serving.volcano.sh/v1alpha1
+kind: AutoscalingPolicyBinding
+metadata:
+  name: aasp-predictive-binding-multi
+  namespace: aasp-scale-demo
+spec:
+  policyRef:
+    name: aasp-predictive-scaling-multi
+  homogeneousTarget:
+    minReplicas: 1
+    maxReplicas: 6
+    target:
+      targetRef:
+        apiVersion: workload.serving.volcano.sh/v1alpha1
+        kind: ModelServing
+        name: mock-predict-serving
+      # Scrape all ModelServing pods. With leader election, only one exposes
+      # non-zero predicted gauges; the rest expose 0 → sum == global peak.
+      metricEndpoint:
+        port: 8000
+        uri: /metrics

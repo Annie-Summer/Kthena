@@ -1,0 +1,119 @@
+# Mode B example: Secret + ModelServing with optional IAM auto re-login.
+# Copy/adapt values, then:
+#   kubectl apply -f deploy-mode-b.example.yaml
+# Rebuild Pods after apply so new env/Secret are picked up.
+#
+# Prerequisites elsewhere in the namespace (from deploy.yaml):
+#   ServiceAccount aasp-metrics-adapter, Role/RoleBinding, Policy, Binding
+# Image must include IAM refresh (recommend 0.5.0+).
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: aasp-api-token
+  namespace: aasp-scale-demo
+type: Opaque
+stringData:
+  # Optional seed for X-Auth-Token (can be empty if IAM login works at startup).
+  token: "PUT_OPTIONAL_X_AUTH_TOKEN_HERE"
+  # Required for Mode B auto re-login.
+  iam-password: "PUT_IAM_USER_PASSWORD_HERE"
+---
+apiVersion: workload.serving.volcano.sh/v1alpha1
+kind: ModelServing
+metadata:
+  name: mock-predict-serving
+  namespace: aasp-scale-demo
+spec:
+  replicas: 1
+  recoveryPolicy: None
+  template:
+    roles:
+      - name: infer
+        replicas: 1
+        workerReplicas: 0
+        entryTemplate:
+          spec:
+            serviceAccountName: aasp-metrics-adapter
+            imagePullSecrets:
+              - name: default-secret
+            containers:
+              - name: adapter
+                # Use an image that includes IAM 401 refresh (0.5.0+).
+                image: swr.hcs-lab.ga159arm.com/cce-charts-hcs-lab-a163446a18ae451f91e6083ec1164afe/aasp-metrics-adapter:0.5.0
+                imagePullPolicy: Always
+                ports:
+                  - name: metrics
+                    containerPort: 8000
+                env:
+                  - name: MOCK
+                    value: "0"
+                  - name: BASE_URL
+                    value: "http://52.170.215.202:8088"
+                  - name: PROJECT_ID
+                    value: "5dfed145e29a43f7b42c5ecc17d4d98c"
+                  - name: INSTANCE_ID
+                    value: "922ae983-addb-46e8-8096-5092de62af13"
+                  - name: REGION
+                    value: "cn-north-5"
+                  - name: AUTH_HEADER
+                    value: "x-auth-token"
+                  # Predictive window: forward = [now, now+WINDOW]; use backward if needed.
+                  - name: TIME_RANGE_MODE
+                    value: "forward"
+                  - name: WINDOW_MINUTES
+                    value: "10"
+                  - name: POLL_SECONDS
+                    value: "15"
+                  - name: METRICS_PORT
+                    value: "8000"
+
+                  # --- Mode A seed (optional when Mode B is fully configured) ---
+                  - name: TOKEN
+                    valueFrom:
+                      secretKeyRef:
+                        name: aasp-api-token
+                        key: token
+                        optional: true
+
+                  # --- Mode B: IAM auto re-login ---
+                  # HCS lab: replace with your real IAM endpoint if not public cloud.
+                  - name: IAM_AUTH_URL
+                    value: "https://iam.myhuaweicloud.com/v3/auth/tokens?nocatalog=true"
+                  - name: IAM_DOMAIN
+                    value: "PUT_IAM_DOMAIN_HERE"
+                  - name: IAM_USER
+                    value: "PUT_IAM_USER_HERE"
+                  - name: IAM_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: aasp-api-token
+                        key: iam-password
+                  # Prefer one of project name / project id:
+                  - name: IAM_PROJECT_NAME
+                    value: "cn-north-5"
+                  # - name: IAM_PROJECT_ID
+                  #   value: "5dfed145e29a43f7b42c5ecc17d4d98c"
+                  - name: IAM_REFRESH_SKEW_SECONDS
+                    value: "300"
+
+                  # --- Leader election (required for multi-replica scrape) ---
+                  - name: LEADER_ELECTION
+                    value: "1"
+                  - name: LEASE_NAME
+                    value: "aasp-metrics-leader"
+                  - name: POD_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.name
+                  - name: POD_NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
+                resources:
+                  requests:
+                    cpu: 50m
+                    memory: 64Mi
+                  limits:
+                    cpu: 200m
+                    memory: 128Mi
