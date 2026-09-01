@@ -3,7 +3,8 @@
 Polls Huawei AASP `infer-recommendations` API, takes **max** over prediction points, and exposes Prometheus gauges for Kthena Autoscaler (`metricEndpoint` Pod scrape).
 
 **Design (architecture, leader election rationale, Kthena scaling):** see [DESIGN.md](./DESIGN.md).  
-**deploy.yaml resource-by-resource:** see [DEPLOY.md](./DEPLOY.md).
+**deploy.yaml resource-by-resource:** see [DEPLOY.md](./DEPLOY.md).  
+**Token manual vs IAM auto re-login:** see [TOKEN-MODES.md](./TOKEN-MODES.md).
 
 ## Leader election (recommended)
 
@@ -68,6 +69,8 @@ Peak strategy: window max over `predictions` (not `score`, until that field is d
 \* Not required when `MOCK=1`. With IAM auto-refresh configured, `TOKEN` may be empty (Adapter will login), but seeding an initial token is still fine.
 
 ## Token modes
+
+详见专文：**[TOKEN-MODES.md](./TOKEN-MODES.md)**（手动填写 vs IAM 自动重登的步骤与对照）。
 
 1. **Manual only:** set `TOKEN` (Secret). On expiry, update Secret and recreate pods.  
 2. **Auto re-login (optional):** also set `IAM_*`. On AASP **401/403**, Adapter calls IAM, stores new token **in memory**, retries once (no pod restart). Also refreshes when `expires_at` is within `IAM_REFRESH_SKEW_SECONDS`.
