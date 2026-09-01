@@ -299,5 +299,6 @@ behavior.scaleUp / scaleDown
 ## 8. 参考
 
 - 实现：`adapter.py`、`leader_election.py`、`deploy.yaml`  
+- **deploy.yaml 逐资源说明：** [`DEPLOY.md`](./DEPLOY.md)  
 - 操作手册：`REAL-SCENARIO-TEST-GUIDE.md`、`TEST-GUIDE.md`  
 - PR / 代码分支：仓库 `aasp-metrics-adapter/`（选主 + 真 API 解析 ≥ 0.4.1）

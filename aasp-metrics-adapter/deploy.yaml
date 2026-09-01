@@ -1,4 +1,5 @@
 # aasp-scale-demo: mock-mode adapter + Kthena policy/binding
+# Resource-by-resource explanation: see DEPLOY.md
 # Leader election: every ModelServing pod can run the adapter; only the Lease
 # holder exposes non-zero predicted gauges (followers expose 0 → no ×N).
 #

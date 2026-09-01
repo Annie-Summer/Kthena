@@ -2,7 +2,8 @@
 
 Polls Huawei AASP `infer-recommendations` API, takes **max** over prediction points, and exposes Prometheus gauges for Kthena Autoscaler (`metricEndpoint` Pod scrape).
 
-**Design (architecture, leader election rationale, Kthena scaling):** see [DESIGN.md](./DESIGN.md).
+**Design (architecture, leader election rationale, Kthena scaling):** see [DESIGN.md](./DESIGN.md).  
+**deploy.yaml resource-by-resource:** see [DEPLOY.md](./DEPLOY.md).
 
 ## Leader election (recommended)
 
