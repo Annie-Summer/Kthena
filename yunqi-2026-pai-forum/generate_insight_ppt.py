@@ -175,17 +175,17 @@ def bulletize(details: list[str], limit=4, max_chars=72) -> list[str]:
         if not t:
             continue
         t = re.sub(r"^[•\-]\s*", "", t)
+        if re.match(r"^友商", t) or "HCS" in t:
+            continue
         if len(t) > max_chars:
             sents = split_sentences(t)
             if sents:
-                # Prefer the first full sentence even if a bit over budget
                 if len(sents[0]) <= max_chars + 24:
                     t = sents[0].rstrip("。；;")
                 elif "；" in t or ";" in t:
                     first = re.split(r"[；;]", t, 1)[0].strip()
                     t = first if len(first) >= 16 else sents[0].rstrip("。；;")
                 else:
-                    # Keep the full first sentence — clarity over fitting
                     t = sents[0].rstrip("。；;")
             elif "；" in t or ";" in t:
                 t = re.split(r"[；;]", t, 1)[0].strip()
@@ -648,8 +648,11 @@ def build_judgment_line(talk: dict) -> str:
     # Final sweep: no speaker names / 演讲 framing leftovers
     line = re.sub(r"(圆桌由|由)[^，]{1,20}主持[，,]?", "", line)
     line = re.sub(r"[，,]?邀请[^。]+", "", line)
-    line = re.sub(r"(?<![A-Za-z])(?:演讲|分享|介绍)(?=从|指出|了|了)", "", line)
-    return "一句话判断：" + clean(line)
+    line = re.sub(r"。?\s*演讲给出", "。", line)
+    line = re.sub(r"。?\s*指出", "。", line)
+    line = re.sub(r"。。+", "。", line)
+    line = re.sub(r"(?<![A-Za-z])(?:演讲|分享|介绍)(?=从|指出|了)", "", line)
+    return "一句话判断：" + clean(line).lstrip("。；; ")
 
 
 def card_lead_from_point(tp: dict) -> str:
