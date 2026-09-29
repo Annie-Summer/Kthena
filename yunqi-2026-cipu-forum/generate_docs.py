@@ -15,6 +15,13 @@ NOTES = ROOT / "notes"
 DOCS = ROOT / "docs"
 SHOTS = ROOT / "screenshots"
 
+INSIGHT_LABELS = [
+    ("trend", "趋势判断"),
+    ("tech_judgment", "关键技术判断"),
+    ("infra_implication", "对 Infra / 平台的启示"),
+    ("ppt_hooks", "洞察PPT页建议（可直接拆页）"),
+]
+
 
 def set_run_font(run, name="微软雅黑", size=11, bold=False, color=None):
     run.font.name = name
@@ -65,9 +72,9 @@ def add_image(doc, path: Path, caption: str | None = None, width=5.8):
 
 
 def add_evidence_images(doc, shot_dir: str, images: list[dict]):
-    """Place evidence screenshots immediately under the related content."""
     for img in images:
-        path = SHOTS / shot_dir / img["file"]
+        img_dir = img.get("shot_dir") or shot_dir
+        path = SHOTS / img_dir / img["file"]
         add_image(doc, path, caption=img.get("caption"))
         if img.get("note"):
             add_para(doc, f"佐证说明：{img['note']}", size=10, space_after=10)
@@ -85,19 +92,26 @@ def build_doc(meta: dict) -> Path:
     add_para(doc, f"演讲嘉宾：{meta['speakers']}", bold=True)
     add_para(doc, f"大会议程时间：{meta['agenda_time']}")
     add_para(doc, f"视频时间轴：{meta['video_time']}")
-    add_para(doc, f"来源：2026云栖大会 · Agentic AI 时代的算力与存储服务器革新")
-    add_para(doc, f"回放链接：https://yunqi.aliyun.com/2026/session?agendaId=164")
-
-    add_heading(doc, "一、内容摘要", 2)
-    add_para(doc, meta["summary"])
-
-    add_heading(doc, "二、核心要点", 2)
-    add_bullets(doc, meta["key_points"])
-
-    add_heading(doc, "三、分节梳理与PPT佐证", 2)
+    add_para(doc, "来源：2026云栖大会 · Agentic AI 时代的算力与存储服务器革新")
+    add_para(doc, "回放链接：https://yunqi.aliyun.com/2026/session?agendaId=164")
     add_para(
         doc,
-        "以下按议题结构展开；每节文字要点之后立即附上对应 PPT 截图作为佐证。",
+        "文档定位：偏技术细节与未来启示，可作为后续洞察PPT的素材底稿。",
+        size=10,
+        bold=True,
+    )
+
+    add_heading(doc, "一、议题速览", 2)
+    add_para(doc, meta["summary"])
+
+    if meta.get("tech_highlights"):
+        add_heading(doc, "二、关键技术细节速览", 2)
+        add_bullets(doc, meta["tech_highlights"])
+
+    add_heading(doc, "三、技术展开与PPT佐证", 2)
+    add_para(
+        doc,
+        "以下按技术主题展开；每节要点之后立即附上对应 PPT 截图。",
         size=10,
     )
     for block in meta.get("blocks", []):
@@ -105,9 +119,20 @@ def build_doc(meta: dict) -> Path:
         add_bullets(doc, block.get("bullets", []))
         add_evidence_images(doc, meta["shot_dir"], block.get("images", []))
 
-    if meta.get("takeaways"):
-        add_heading(doc, "四、结论与启示", 2)
-        add_bullets(doc, meta["takeaways"])
+    insights = meta.get("insights") or {}
+    if insights:
+        add_heading(doc, "四、面向未来的洞察（洞察PPT素材）", 2)
+        add_para(
+            doc,
+            "本节可直接拆成洞察PPT的判断页/动作页/金句页。",
+            size=10,
+        )
+        for key, label in INSIGHT_LABELS:
+            items = insights.get(key) or []
+            if not items:
+                continue
+            add_para(doc, label, bold=True, size=12, space_after=4)
+            add_bullets(doc, items)
 
     DOCS.mkdir(parents=True, exist_ok=True)
     out = DOCS / meta["filename"]
