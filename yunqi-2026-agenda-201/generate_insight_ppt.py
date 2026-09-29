@@ -195,39 +195,76 @@ def bulletize(details: list[str], limit=4, max_chars=72) -> list[str]:
     return out
 
 
+def metric_has_number(m: str) -> bool:
+    return bool(re.search(r"[\d]+(?:\.\d+)?\s*[%％×xX倍]|[+\-−]\s*\d|[\d]+/?分钟|[\d]+/?秒|[\d]+万", m))
+
+
+def parse_metric(m: str, area: str) -> tuple[str, str, str]:
+    """Return (label, compare_context, value). Never use 演讲口径."""
+    m = clean(m)
+    for sep in ["→", "->", "⇒"]:
+        if sep in m:
+            left, right = [x.strip() for x in m.split(sep, 1)]
+            if left and right:
+                return (take_complete(area or left, 14), take_complete(left, 20), take_complete(right, 28))
+    if "：" in m:
+        left, right = [x.strip() for x in m.split("：", 1)]
+        if left and right and len(left) <= 14:
+            mid = take_complete(area, 20) if area and area != left else "关键能力"
+            return (take_complete(left, 14), mid, take_complete(right, 28))
+    # Keep ranges intact: 15%~35% / 2~2.4x / +2~10% / 约 -50%
+    m_num = re.search(
+        r"^(.*?)("
+        r"(?:约\s*)?"
+        r"[+\-−]?\d+(?:\.\d+)?"
+        r"(?:\s*%?\s*[~～\-–]\s*\d+(?:\.\d+)?%?)?"
+        r"\s*(?:%|％|×|x|X|倍)?"
+        r"(?:/\w+)?"
+        r")$",
+        m,
+    )
+    if m_num and m_num.group(1).strip() and m_num.group(2).strip():
+        head, num = m_num.group(1).strip(" ：:-"), m_num.group(2).strip()
+        # Avoid splitting when head itself ends with dangling ~ 
+        if head.endswith("~") or head.endswith("～"):
+            return (take_complete(area or "关键指标", 14), "关键能力", take_complete(m, 28))
+        return (take_complete(head or area, 14), take_complete(area, 20) if area else "提升幅度", take_complete(num, 28))
+    return (take_complete(area or "关键指标", 14), "关键能力", take_complete(m, 28))
+
+
 def pick_metrics(points: list[dict]) -> list[tuple[str, str, str]]:
-    """Build up to 6 metric cards with complete labels/values (no ellipsis)."""
-    rows: list[tuple[str, str, str]] = []
+    """Pick up to 6 complete metrics; prefer numeric/contrast items; no 演讲口径."""
+    scored: list[tuple[int, int, str, str]] = []
     for tp in points:
-        if len(rows) >= 6:
-            break
+        area = short_title(tp.get("title", "指标"), 12)
         ms = [clean(m) for m in (tp.get("metrics") or []) if clean(m)]
-        title = short_title(tp.get("title", "指标"), 12)
         if not ms:
             detail = clean((tp.get("details") or [""])[0])
-            if not detail:
-                continue
-            rows.append((title, "核心口径", take_complete(detail, 28)))
+            if detail:
+                scored.append((2, len(detail), area, detail))
             continue
-        for i, m in enumerate(ms):
-            if len(rows) >= 6:
-                break
-            baseline, value = "演讲口径", m
-            for sep in ["→", "->", "⇒"]:
-                if sep in m:
-                    left, right = m.split(sep, 1)
-                    left, right = left.strip(), right.strip()
-                    if left and right:
-                        baseline, value = left, right
-                        break
-            # Label: prefer short head before colon inside metric, else talk point title
-            if "：" in m and len(m.split("：", 1)[0]) <= 12:
-                label = m.split("：", 1)[0]
-                if baseline == "演讲口径":
-                    value = m.split("：", 1)[1].strip() or m
-            else:
-                label = title if i == 0 else f"{title}·{i+1}"
-            rows.append((take_complete(label, 14), take_complete(baseline, 20), take_complete(value, 28)))
+        for m in ms:
+            rank = 0 if metric_has_number(m) else (1 if any(s in m for s in ["→", "->", "⇒"]) else 2)
+            scored.append((rank, len(m), area, m))
+    scored.sort(key=lambda x: (x[0], x[1]))
+    rows: list[tuple[str, str, str]] = []
+    seen = set()
+    for _, _, area, m in scored:
+        if len(rows) >= 6:
+            break
+        label, baseline, value = parse_metric(m, area)
+        for bad in ("演讲口径", "核心口径", "宣称口径"):
+            if baseline == bad:
+                baseline = "能力要点"
+            if label == bad:
+                label = area
+            if value == bad:
+                value = m
+        key = (label, value)
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append((label, baseline, value))
     while len(rows) < 6:
         rows.append(("—", "—", "—"))
     return rows[:6]
@@ -376,8 +413,247 @@ def load_talks(notes_dir: Path) -> list[dict]:
     return sorted(uniq, key=lambda x: x["id"])
 
 
-def insight_field(tp: dict) -> str:
-    return clean(tp.get("hcs_insight") or tp.get("competitor_insight") or "")
+def strip_hcs_framing(text: str) -> str:
+    """Remove HCS/友商「应该怎么做」口吻，保留可迁移的启示本身。"""
+    t = clean(text)
+    repls = [
+        (r"^HCS\s*技术规划应", ""),
+        (r"^HCS\s*规划应", ""),
+        (r"^HCS\s*应", ""),
+        (r"^对标\s*HCS[^\s，。；]*[，。；]?", ""),
+        (r"[，；]?\s*写入\s*HCS[^，。；]*", ""),
+        (r"进入\s*HCS\s*产品目录", "纳入产品能力目录"),
+        (r"[，；]?\s*作为与公有云[^。]*", ""),
+        (r"^友商需", ""),
+        (r"^友商应", ""),
+        (r"[，；]?\s*友商应[^。；]*", ""),
+        (r"[，；]?\s*友商需[^。；]*", ""),
+        (r"[，；]?\s*友商(?:建设|可对标|可借鉴|对标)[^。；]*", ""),
+        (r"^演讲给出", ""),
+        (r"^指出", ""),
+        (r"^仅卖算力与控制台不够；\s*", ""),
+        (r"[，；]?\s*驱动\s*CCI/CCE[^。]*", ""),
+        (r"[，；]?\s*而不是仅发布概念白皮书。?", ""),
+    ]
+    for pat, rep in repls:
+        t = re.sub(pat, rep, t)
+    t = re.sub(r"\bHCS\b", "", t)
+    t = clean(t).lstrip("，,；;：: ")
+    t = re.sub(r"[，,；;]+\s*([。！？])", r"\1", t)
+    t = re.sub(r"[，,；;]+$", "", t)
+    return clean(t)
+
+
+def to_revelation(text: str) -> str:
+    """Normalize a note into an insight/revelation sentence (no HCS action plan)."""
+    t = strip_hcs_framing(text)
+    if not t:
+        return ""
+    t = re.sub(r"^应立项", "宜建设", t)
+    t = re.sub(r"^立项", "宜建设", t)
+    t = re.sub(r"^应把", "需要把", t)
+    t = re.sub(r"^把(?=「|Agent|托管|评测)", "需要把", t)
+    t = re.sub(r"^应按", "宜按", t)
+    t = re.sub(r"^按(?=Use/In/RL|三类)", "宜按", t)
+    t = re.sub(r"^应在", "宜在", t)
+    t = re.sub(r"^应同时", "需要同时", t)
+    t = re.sub(r"^应提供", "需要提供", t)
+    t = re.sub(r"^应默认", "宜默认", t)
+    t = re.sub(r"^应看", "应关注", t)
+    t = re.sub(r"^将「", "宜把「", t)
+    t = clean(t)
+    # Repair tails truncated by stripping planning clauses
+    if re.search(r"(宜把|需要把|将)「[^」]+」\s*$", t):
+        t = t.rstrip("。；; ") + "作为规模与弹性的硬指标"
+    if t and t[-1] not in "。！？":
+        t += "。"
+    return t
+
+
+def company_of(talk: dict) -> str:
+    org = clean(talk.get("org") or "")
+    title = clean(talk.get("title") or "")
+    blob = org + " " + title
+    if "小米" in blob:
+        return "小米"
+    if "智元" in blob:
+        return "智元"
+    if "生数" in blob:
+        return "生数科技"
+    if "小红书" in blob:
+        return "小红书"
+    if "朗新" in blob:
+        return "朗新"
+    if "CARIAD" in blob.upper() or "大众" in blob:
+        return "CARIAD"
+    if "费莫" in blob or "穹彻" in blob or "流形" in blob:
+        return "具身智能生态"
+    if "阿里" in blob or "阿里云" in org or "PAI" in blob or "ACK" in blob or "百炼" in blob:
+        return "阿里云"
+    head = org.split("·")[0].split("/")[0].strip()
+    return head or "阿里云"
+
+
+def product_of(talk: dict) -> str:
+    title = clean(talk.get("title") or "")
+    overview = clean(talk.get("overview") or "")
+    org = clean(talk.get("org") or "")
+    blob = title + " " + overview + " " + org
+    candidates = [
+        "Agent Sandbox",
+        "Agent Infra",
+        "PAI-DLC",
+        "PAI-InferX",
+        "PAI-TurboX",
+        "Physical AI",
+        "Agentic AI Platform",
+        "Agentic Inference",
+        "百炼",
+        "ACK",
+        "Argo",
+        "Ray on ACK",
+        "CrystalLLM",
+        "PAI-RLS",
+        "Vidu",
+        "MEGo",
+        "PAI",
+    ]
+    found = []
+    for c in candidates:
+        if c in blob and c not in found:
+            # Avoid adding PAI if a more specific PAI-* already present
+            if c == "PAI" and any(x.startswith("PAI") for x in found):
+                continue
+            found.append(c)
+        if len(found) >= 2:
+            break
+    if found:
+        return " / ".join(found[:2])
+    t = re.sub(r"^(从.+到|面向|基于)", "", title)
+    return short_title(t, 22)
+
+
+def strip_talk_framing(text: str) -> str:
+    t = clean(text)
+    patterns = [
+        r"^本场系统给出",
+        r"^本场围绕",
+        r"^本场展示",
+        r"^本场为",
+        r"^本场前半由[^，。：]+[，：]",
+        r"^本场前半由[^：]+：",
+        r"^本场后半由[^，。：]+[，：]",
+        r"^本场后半由[^：]+：",
+        r"^后半由[^，。：]+[，：]",
+        r"^前半由[^，。：]+[，：]",
+        r"^本演讲系统阐述",
+        r"^本演讲",
+        r"^演讲围绕",
+        r"^演讲主张",
+        r"^演讲提出",
+        r"^演讲指出",
+        r"^演讲从",
+        r"^由[^，]{1,12}产品化讲解",
+        r"^由[^，]{1,12}拆解",
+        r"^由[^，]{1,12}展开",
+        r"^圆桌由[^，]+主持[，,]?",
+        r"^邀请[^，]+，",
+    ]
+    for pat in patterns:
+        t = re.sub(pat, "", t)
+    t = clean(t).lstrip("，,：: ")
+    t = re.sub(r"^[^。]{0,30}如何重写", "重写", t)
+    t = re.sub(r"^[^。]{0,20}(讲解|拆解|展开)[^：]{0,20}：", "", t)
+    # Remove “某人介绍/分享/系统介绍 …” speaker framing anywhere near the start
+    t = re.sub(
+        r"^[^。；]{0,24}?(?:资深技术专家|高级解决方案架构师|创始人|CEO|科学家)?[^。；]{0,16}?(?:系统)?(?:介绍|分享|讲解|拆解|指出)[^：]{0,40}[：:，,]?",
+        "",
+        t,
+    )
+    # “某人分享X如何把A升级为B” → keep B-impact clause if present
+    t = re.sub(r"^.*?如何把「[^」]+」升级为「([^」]+)」[。．]?", r"目标是实现「」。", t)
+    t = re.sub(r"^.*?如何把(.+?)升级为(.+?)[。．]", r"目标是从升级为。", t)
+    # Drop leftover “后半由严龙以…给出”
+    t = re.sub(r"[。；]?\s*后半由[^。]+", "", t)
+    t = re.sub(r"[。；]?\s*前半由[^。]+", "", t)
+    return clean(t).lstrip("，,：: ")
+
+
+def build_insight_line(summaries: list[str], overview: str, points: list[dict]) -> str:
+    # Prefer first usable summary (primary insight), not the shortest tail note
+    candidates: list[str] = []
+    for s in summaries:
+        rev = to_revelation(s)
+        if rev and len(rev) >= 16:
+            candidates.append(rev)
+    if not candidates and points:
+        for tp in points[:3]:
+            raw = clean(tp.get("competitor_insight") or tp.get("hcs_insight") or "")
+            rev = to_revelation(raw)
+            if rev:
+                candidates.append(rev)
+                break
+    if not candidates:
+        candidates.append(to_revelation(overview) or overview)
+    core = candidates[0]
+    if len(core) > 100:
+        core = take_complete(core, 100)
+    return "洞察：" + core
+
+
+def build_judgment_line(talk: dict) -> str:
+    company = company_of(talk)
+    product = product_of(talk)
+    impact = strip_talk_framing(clean(talk.get("overview") or ""))
+    impact = strip_hcs_framing(impact)
+    impact = re.sub(r"^.*?的?(形态判断与产品架构|解决方案最佳实践|联合实践)[：:]", "", impact)
+    impact = re.sub(r"^.*?与.+的结合[：:]", "", impact)
+    # Side labels like “ACK 侧给出 / 生数侧介绍”
+    impact = re.sub(r"^[A-Za-z0-9\u4e00-\u9fff ]{1,16}侧\s*(?:给出|介绍|展示)[：,]?", "", impact)
+    impact = re.sub(r"[；;]\s*[A-Za-z0-9\u4e00-\u9fff ]{1,16}侧\s*(?:给出|介绍|展示)[：,]?", "；", impact)
+    impact = re.sub(r"^指出", "", impact)
+    impact = re.sub(r"^提出", "", impact)
+    # Repair broken quote leftovers from speaker-strip, e.g. “I提效」.”
+    impact = re.sub(r"^[^「」]{0,8}」[。．\.]?", "", impact)
+    impact = clean(impact).lstrip("，,：:；; ")
+    sents = split_sentences(impact, seps="。！？")
+    if sents:
+        body = sents[0].rstrip("；;")
+        if len(body) < 70 and len(sents) > 1 and len(body) + len(sents[1]) <= 150:
+            body = body + sents[1].rstrip("；;")
+    else:
+        body = take_complete(impact, 140).rstrip("；;")
+    # Avoid “小米 小米广告…” duplication
+    if product and (product.startswith(company) or company in product):
+        prefix = product
+    elif product:
+        prefix = f"{company} {product}"
+    else:
+        prefix = company
+    first_prod = product.split("/")[0].strip() if product else ""
+    if body.startswith(company) or (first_prod and body.startswith(first_prod)):
+        line = body
+    else:
+        line = f"{prefix}——{body}"
+    # Final sweep: no speaker names / 演讲 framing leftovers
+    line = re.sub(r"(圆桌由|由)[^，]{1,20}主持[，,]?", "", line)
+    line = re.sub(r"[，,]?邀请[^。]+", "", line)
+    line = re.sub(r"(?<![A-Za-z])(?:演讲|分享|介绍)(?=从|指出|了|了)", "", line)
+    return "一句话判断：" + clean(line)
+
+
+def card_lead_from_point(tp: dict) -> str:
+    """Card lead = revelation from tech point, never HCS action plan."""
+    details = [clean(d) for d in (tp.get("details") or []) if clean(d)]
+    raw = clean(tp.get("competitor_insight") or tp.get("hcs_insight") or "")
+    rev = to_revelation(raw)
+    if rev:
+        sents = split_sentences(rev, seps="。！？；;")
+        lead = sents[0] if sents else rev
+        return take_complete(lead.rstrip("；;"), 70)
+    if details:
+        return take_complete(details[0], 70)
+    return short_title(tp.get("title", ""), 40)
 
 
 def build_from_talk(talk: dict, *, forum_root: Path, source_url: str, audience_note: str = "") -> Path:
@@ -399,57 +675,36 @@ def build_from_talk(talk: dict, *, forum_root: Path, source_url: str, audience_n
     eyebrow = f"{tid} · {speaker}" + (f" · {org}" if org else "")
     eyebrow = take_complete(eyebrow, 90)
 
-    # Insight: use the primary summary in full (complete viewpoint)
-    core = summaries[0] if summaries else overview
-    insight = "洞察：" + (core if len(core) <= 100 else take_complete(core, 100))
-
-    # Judgment: 1–2 complete sentences from overview — never mid-cut
-    # Only treat 。！？ as hard sentence ends (； often mid-thought)
-    ov_sents = split_sentences(overview, seps="。！？")
-    if ov_sents:
-        judgment_body = ov_sents[0].rstrip("；;")
-        if len(judgment_body) < 90 and len(ov_sents) > 1:
-            nxt = ov_sents[1].rstrip("；;")
-            if len(judgment_body) + len(nxt) <= 180:
-                judgment_body = judgment_body + nxt
-    else:
-        judgment_body = take_complete(overview, 170).rstrip("；;")
-    judgment = "一句话判断：" + judgment_body
+    insight = build_insight_line(summaries, overview, points)
+    judgment = build_judgment_line(talk)
 
     cards = []
     for i, tp in enumerate(points[:3], 1):
         details = [clean(d) for d in (tp.get("details") or []) if clean(d)]
-        insight_txt = insight_field(tp)
-        # Lead = first complete sentence of insight (or first detail) — full clause
-        if insight_txt:
-            lead_sents = split_sentences(insight_txt)
-            lead = lead_sents[0] if lead_sents else insight_txt
-            if len(lead) > 70:
-                lead = take_complete(lead, 70)
-        else:
-            lead = take_complete(details[0] if details else tp.get("title", ""), 70)
-        lead = lead.rstrip("；;、，, ")
-        if lead and lead[-1] not in "。！？":
-            # Keep as a complete declarative viewpoint without dangling separators
-            pass
-        bullet_src = details
-        bullets = bulletize(bullet_src, limit=3, max_chars=58)
+        lead = card_lead_from_point(tp).rstrip("；;、，, ")
+        bullets = bulletize(details, limit=3, max_chars=58)
         cards.append((f"{i:02d}  {short_title(tp.get('title', ''), 18)}", lead, bullets))
     while len(cards) < 3:
         cards.append((f"{len(cards)+1:02d}  补充要点", "详见技术纪要 Word", ["• 展开阅读 docs 对应议题"]))
 
     metrics = pick_metrics(points)
 
-    # Action: join complete summaries (full sentences)
-    action_bits = summaries[:3] if summaries else [insight_field(tp) for tp in points[:2] if insight_field(tp)]
+    action_bits = []
+    for s in summaries[:3]:
+        rev = to_revelation(s)
+        if rev:
+            action_bits.append(rev)
+    if not action_bits:
+        for tp in points[:3]:
+            rev = to_revelation(clean(tp.get("competitor_insight") or tp.get("hcs_insight") or ""))
+            if rev:
+                action_bits.append(rev)
     action_body = "；".join(b.rstrip("。；;") for b in action_bits if b)
     if action_body and not action_body.endswith(("。", "；")):
         action_body += "。"
-    action = "可落地动作：" + action_body
+    action = "启示要点：" + action_body
 
     source = f"来源：{source_url} · Talk {tid} {speaker}"
-    if audience_note:
-        source = f"{source}  ·  视角：{audience_note}"
 
     ev_items = []
     for tp in points:
@@ -504,7 +759,7 @@ FORUMS = {
     "agenda201": {
         "root": Path("/workspace/yunqi-2026-agenda-201"),
         "source": "https://yunqi.aliyun.com/2026/session?agendaId=201",
-        "audience": "HCS 技术规划",
+        "audience": "",
     },
 }
 
