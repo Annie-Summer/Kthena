@@ -613,6 +613,9 @@ def build_judgment_line(talk: dict) -> str:
     impact = re.sub(r"[；;]\s*[A-Za-z0-9\u4e00-\u9fff ]{1,16}侧\s*(?:给出|介绍|展示)[：,]?", "；", impact)
     impact = re.sub(r"^指出", "", impact)
     impact = re.sub(r"^提出", "", impact)
+    impact = re.sub(r"^演讲给出", "", impact)
+    impact = re.sub(r"[。；]\s*演讲给出", "。", impact)
+    impact = re.sub(r"。指出", "。", impact)
     # Repair broken quote leftovers from speaker-strip, e.g. “I提效」.”
     impact = re.sub(r"^[^「」]{0,8}」[。．\.]?", "", impact)
     impact = clean(impact).lstrip("，,：:；; ")
@@ -630,6 +633,13 @@ def build_judgment_line(talk: dict) -> str:
         prefix = f"{company} {product}"
     else:
         prefix = company
+    # De-dup “无尽前延 无尽前延”
+    parts = prefix.split()
+    dedup = []
+    for p in parts:
+        if not dedup or p != dedup[-1]:
+            dedup.append(p)
+    prefix = " ".join(dedup)
     first_prod = product.split("/")[0].strip() if product else ""
     if body.startswith(company) or (first_prod and body.startswith(first_prod)):
         line = body
