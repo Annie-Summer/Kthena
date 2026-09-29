@@ -106,22 +106,18 @@ def build_one_pager(
     # 页面浅底
     rect(slide, 0, 0, W, H, fill=BG)
 
-    # 左侧仅暗红色细边（原绿条改为边框线）
-    rect(slide, 0, 0, Pt(4), H, fill=ACCENT)
-
-    # 顶部：无黑底，仅暗红色底边框区域
+    # 顶部：无黑底、无暗红色边框
     header_h = Inches(1.15)
     rect(slide, 0, 0, W, header_h, fill=WHITE, line=None)
-    rect(slide, 0, header_h - Pt(2), W, Pt(2), fill=ACCENT)
     textbox(slide, Inches(0.4), Inches(0.16), Inches(12.5), Inches(0.3), eyebrow, size=13, color=MUTED)
     textbox(slide, Inches(0.4), Inches(0.46), Inches(12.5), Inches(0.55), insight, size=22, bold=True, color=DARK)
 
-    # 一句话判断：白底 + 暗红色边框（原浅绿底/绿边）
+    # 一句话判断：白底 + 灰色边框
     jy = Inches(1.32)
-    rect(slide, Inches(0.35), jy, Inches(12.6), Inches(0.55), fill=WHITE, line=ACCENT, line_w=1.5)
+    rect(slide, Inches(0.35), jy, Inches(12.6), Inches(0.55), fill=WHITE, line=BORDER, line_w=1)
     textbox(slide, Inches(0.5), jy + Inches(0.1), Inches(12.3), Inches(0.4), judgment, size=14, bold=True, color=DARK)
 
-    # 三栏卡片：白底灰边，标题区无绿底，仅顶边暗红色细线
+    # 三栏卡片：白底灰边；暗红色仅用于标题文字
     cy = Inches(2.05)
     ch = Inches(2.85)
     cw = Inches(4.05)
@@ -129,7 +125,6 @@ def build_one_pager(
     for i, (title, lead, bullets) in enumerate(cards):
         x = Inches(0.35) + i * (cw + gap)
         rect(slide, x, cy, cw, ch, fill=WHITE, line=BORDER, line_w=1)
-        rect(slide, x, cy, cw, Pt(3), fill=ACCENT)  # 顶边强调线，非大块填充
         textbox(slide, x + Inches(0.15), cy + Inches(0.15), cw - Inches(0.3), Inches(0.35), title, size=16, bold=True, color=ACCENT)
         lines = [lead] + bullets
         multilines(
@@ -149,7 +144,7 @@ def build_one_pager(
     my = Inches(5.05)
     textbox(slide, Inches(0.35), my, Inches(8), Inches(0.28), metrics_title, size=14, bold=True, color=DARK)
 
-    # 指标卡：白底边框 + 左侧暗红色细条（原橙色）
+    # 指标卡：白底灰边；暗红色仅用于数值文字
     mw = Inches(2.02)
     mh = Inches(0.95)
     mg = Inches(0.12)
@@ -157,15 +152,13 @@ def build_one_pager(
         x = Inches(0.35) + i * (mw + mg)
         y = my + Inches(0.32)
         rect(slide, x, y, mw, mh, fill=WHITE, line=BORDER, line_w=1)
-        rect(slide, x, y, Pt(4), mh, fill=ACCENT)
         textbox(slide, x + Inches(0.16), y + Inches(0.06), mw - Inches(0.22), Inches(0.22), label, size=11, color=MUTED)
         textbox(slide, x + Inches(0.16), y + Inches(0.28), mw - Inches(0.22), Inches(0.28), baseline, size=11, color=MID)
         textbox(slide, x + Inches(0.16), y + Inches(0.55), mw - Inches(0.22), Inches(0.32), value, size=18, bold=True, color=ACCENT)
 
-    # 底部：无黑底，仅顶边暗红色细线 + 白底
+    # 底部：无黑底、无暗红色边框
     fy = Inches(6.55)
     rect(slide, 0, fy, W, H - fy, fill=WHITE, line=None)
-    rect(slide, 0, fy, W, Pt(2), fill=ACCENT)
     textbox(slide, Inches(0.4), fy + Inches(0.1), Inches(12.5), Inches(0.28), action, size=12, bold=True, color=DARK)
     textbox(slide, Inches(0.4), fy + Inches(0.42), Inches(12.5), Inches(0.28), source, size=10, color=MUTED)
 
