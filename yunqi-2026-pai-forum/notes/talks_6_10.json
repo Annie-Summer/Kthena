@@ -1,0 +1,489 @@
+{
+  "talks": [
+    {
+      "id": "06",
+      "folder": "06-jiang-cariad",
+      "title": "企业工程化AI提效：知识、流程和智能系统",
+      "speaker": "蒋忠波",
+      "org": "大众CARIAD中国 · 云平台和AI效能研发",
+      "overview": "蒋忠波分享大众CARIAD如何把「个人用好大模型」升级为「企业工程化AI提效」。核心矛盾是LLM的概率性本质与汽车软件工程对规模、复杂度、协作与稳定产出的刚性要求。演讲给出CEA AI效能平台三层架构，并以整车故障归因系统证明：用知识骨架引导符号推理，才能把Agent从演示变成可审计、可版本管理的工程资产。",
+      "tech_points": [
+        {
+          "title": "工程化AI提效：从个人能力到企业级稳定产出",
+          "details": [
+            "目标路径：个人提效 → 企业提效，不是再堆Prompt，而是建设可规模化的工程体系。",
+            "四维挑战：规模庞大、复杂度高、分工协作、产出稳定。",
+            "本质约束：LLM-AI的本质特征是概率性，企业落地必须用工程手段对冲幻觉与不稳定。"
+          ],
+          "metrics": [],
+          "image": "t01-50-00.png",
+          "competitor_insight": "友商若只做「个人Copilot渗透率」，难以过企级验收；应尽早定义稳定性、协作流与合规审计的工程KPI，把概率模型纳入可控流程。"
+        },
+        {
+          "title": "三层架构：CEA AI效能平台（模型服务 / HARNESS / 业务应用）",
+          "details": [
+            "第一层模型服务层基于阿里云PAI：推理网关（统一API/智能路由）、开源模型部署（GLM/Qwen/DeepSeek/MiniMax）、后训练（数据集管理与开源微调）、GPU资源管理。",
+            "第二层HARNESS：桌面Agent框架（Open Code、DeepSeek Harness + CEA自有技能/插件）与云端长时任务Agent（统一Memory）；传统研发系统与知识/数据统一暴露MCP接口；企业知识骨架（整车本体）支持RAG/Ontology。",
+            "第三层业务应用：CEA Skill Hub（技能/插件/MCP）+ 软件研发/项目管理/故障分析/EE架构分析Agents，支撑故障归因、软件研发、整车交付等系统。",
+            "横切能力贯穿三层：访问控制、安全、日志审计、合规治理。"
+          ],
+          "metrics": [],
+          "image": "t01-52-00.png",
+          "competitor_insight": "可对标建设「模型层—工具MCP层—业务Agent层」分层，避免把企业系统能力直接硬编码进Prompt；桌面短闭环与云端长任务要分治，并统一Memory与治理。"
+        },
+        {
+          "title": "案例：整车故障归因多Agent流水线",
+          "details": [
+            "业务侧打通整车测试工程师、系统架构师、子领域工程师协作，整合进整车研发流程，并接入Jira工单状态与IM机器人通知。",
+            "方案三步：相似度分析（工单RAG + 工单分析Agents）→ 定界分析/智能诊断（整车本体 + 定界Agents）→ 定位分析/代码分析（代码图谱 + 定位Agents）。",
+            "覆盖集成测试与整车测试，把故障归因从人工串行变成知识驱动的Agent流水线。"
+          ],
+          "metrics": [
+            "定界分析平均约20分钟",
+            "定位/代码分析小于20分钟"
+          ],
+          "image": "t01-56-00.png",
+          "competitor_insight": "高价值场景应「流程嵌入优先」：工单系统、IM、本体、代码图谱与Agent同闭环；友商可优先选有明确SLA的故障/工单类场景证明ROI。"
+        },
+        {
+          "title": "关键技术：LLM结合符号推理的知识骨架",
+          "details": [
+            "局限：概率统计带来幻觉与多跳推理薄弱；预训练模型缺少最新与企业专属知识。",
+            "方案：构建企业知识骨架，按数据类型灵活组合RAG/Ontology等技术；由知识骨架引导推理，实现循证、追溯与解释。",
+            "优势：LLM泛化 + 本体严谨符号推理；可用LLM加速知识骨架建设；结合版本管理后，知识骨架成为工程化AI系统的核心组件。"
+          ],
+          "metrics": [],
+          "image": "t02-00-00.png",
+          "competitor_insight": "纯LLM难以过汽车等强合规行业；应把本体/图谱做成可版本化资产，让回答可追溯证据链，而不是只追求对话流畅度。"
+        },
+        {
+          "title": "业务领域拓展与平台持续优化（V0.5→V0.8）",
+          "details": [
+            "双环演进：上环不断拓展业务领域并构建系统化流程；下环持续突破技术难题以支撑稳定输出。",
+            "业务环：用户量快速增长 → 优化流程与组织绩效 → 构建系统支持流程 → 拓展到其他关键流程。",
+            "技术环：CEA Skill Hub优化、代码图谱定位、领域本体支持定界、整车知识支持定界定位。",
+            "平台从构建基础平台V0.5迭代到完善基础平台V0.8。"
+          ],
+          "metrics": [
+            "平台版本：V0.5 → V0.8"
+          ],
+          "image": "t02-04-00.png",
+          "competitor_insight": "企业AI平台应按「业务扩张环 + 技术稳定环」双轨运营；Skill Hub、代码图谱、领域本体应作为平台级能力沉淀，而不是项目一次性脚本。"
+        },
+        {
+          "title": "议题结构：必要性—架构—案例—关键技术—拓展优化",
+          "details": [
+            "目录五段：工程化AI提效必要性；三层架构支撑智能系统；CEA整车故障归因案例；LLM结合确定性符号推理；业务拓展与框架/技术持续优化。",
+            "叙事上先定义企业问题，再给平台架构，再用可量化案例证明，最后把知识骨架与平台迭代上升为可复制方法。"
+          ],
+          "metrics": [],
+          "image": "t02-02-00.png",
+          "competitor_insight": "对外客户叙事与对内平台路线图应同源：先讲企业约束，再讲分层产品，再用单一高ROI场景闭环验证，避免「能力清单」式PPT。"
+        }
+      ],
+      "summary_insights": [
+        "企业工程化AI的胜负手不是单点模型，而是「知识骨架 + MCP工具原子化 + Agent分工 + 合规横切」。",
+        "汽车软件场景证明：RAG/本体/代码图谱与多Agent流水线结合，可将定界与定位压缩到约20分钟量级。",
+        "友商建设内部效能平台时，应同步设计桌面短链路与云端长时任务，并把知识资产纳入版本管理与审计。"
+      ]
+    },
+    {
+      "id": "07",
+      "folder": "07-wu-xiaomi",
+      "title": "广告系统的智能演进：小米广告算法走向LLM4Rec的实践与思考",
+      "speaker": "吴睿泽",
+      "org": "小米互联网 · 高级算法工程师",
+      "overview": "吴睿泽分享小米应用商店广告在约3个季度内通过底座升级而非单纯调模，实现ARPU提升超过8个百分点的实践。路径是训推全面切Torch、端到端长序列、流式在线学习，并推进推荐Scaling Law与生成式Ultra-HSTU。下一站明确指向LLM4Rec：从点击预测走向大模型语义理解，生成式排序与生成式召回并行落地。",
+      "tech_points": [
+        {
+          "title": "三季业务结果：不只是模型优化",
+          "details": [
+            "小米应用商店广告在2026 Q1–Q3以底座升级驱动业务：可规模、可序列、可实时。",
+            "阶段一Q1：训推框架全面切换Torch；阶段二Q1–Q2：端到端长序列建模；阶段三Q1–Q2：流式在线学习；阶段四Q3–Q4：推荐Scaling Law·生成式（实验中，Next Stop LLM4Rec）。",
+            "Dense参数规模提升约10倍并突破1B，为后续生成式与LLM4Rec打底。"
+          ],
+          "metrics": [
+            "ARPU提升 >8%",
+            "GAUC提升 >2%",
+            "Dense参数规模提升约10×，超过1B"
+          ],
+          "image": "t02-08-00.png",
+          "competitor_insight": "短期调模收益容易见顶；友商应把框架迁移、长序列与在线学习作为与业务目标绑定的底座里程碑，而不是算法旁支。"
+        },
+        {
+          "title": "联合共建：推荐底座升级为可规模/可序列/可实时",
+          "details": [
+            "Q1痛点「模型想做大，显存先到顶」：Torch赋能表征规模化，GPU原生稀疏计算，支持约20亿动态Embedding。",
+            "Q2痛点「序列想做长，推理超成本」：PAI助力长序列计算加速，多级Item KV Cache、INT8量化。",
+            "Q3痛点「业务变化快，模型更新慢」：TorchEasyRec Online Learning，Kafka流式训练与增量热更新。",
+            "架构：离线PAI-TorchEasyRec（Dense: SCTA/MixFormer最大2K+FlashAttention；Sparse: 无冲突Hash动态Emb）经增量推送对接在线PAI-Rec/EAS与FeatureStore，服务小米广告引擎与精排。"
+          ],
+          "metrics": [
+            "内存节省约18%，显存节省约24%",
+            "长序列推理加速约4×，显存节省约58%",
+            "数据时延 3小时→20分钟；更新频率 1小时→分钟级",
+            "Dense参数约3分钟双缓冲更新；Sparse秒级多级存储更新"
+          ],
+          "image": "t02-10-00.png",
+          "competitor_insight": "推荐上云价值在「训推一体底座」：动态Emb、序列KV Cache与在线学习要和在线FeatureStore/EAS同设计，否则大模型推不上线。"
+        },
+        {
+          "title": "下一站LLM4Rec：Scaling Law / 超长序列 / 多模语义",
+          "details": [
+            "01 Scaling Law落地：非序列化堆参已到顶，方向是多源长序列Scaling Up（更多数据源、更长序列、更高效Attention）。",
+            "02 超长序列训推：DLRM继续放大边际成本高，转向生成式框架Ultra-HSTU，联合建模超长用户历史、上下文与候选。",
+            "03 多模表征理解：广告ID多、投放周期短、冷启动样本少，用语义ID + 生成式召回，多模大模型内容编码直接生成候选。",
+            "共建底座能力：PAI-Rec、Dynamic Embedding、流式训练、多模表征、语义ID、HSTU类序列模型、生成式召回、FeatureStore、PAI-EAS统一服务治理。"
+          ],
+          "metrics": [],
+          "image": "t02-14-00.png",
+          "competitor_insight": "LLM4Rec不是把LLM硬塞进CTR；应拆成Scaling路径、生成式序列框架与语义召回三条可独立验证的产品线，并绑定冷启动/长尾覆盖指标。"
+        },
+        {
+          "title": "生成式排序UltraHSTU：十万级序列训推工程优化",
+          "details": [
+            "SessionWise序列共享（M-FALCON）：会话内行为序列共享，降低重复计算。",
+            "定制化变长Attention算子：避免标准padding浪费，提升MFU。",
+            "DynamicBatch均衡：按变长样本在GPU间均衡大/小batch，减少空洞。"
+          ],
+          "metrics": [
+            "训练计算优化约5–10×；推理成本优化约2.5×",
+            "变长Attention：训练速度/显存优化约2–4×，MFU约46%",
+            "DynamicBatch训练速度提升约5%–15%"
+          ],
+          "image": "t02-18-00.png",
+          "competitor_insight": "生成式推荐的瓶颈在算子与batch调度；通用LLM训推栈不够，需要Session共享、变长Attention与动态batch等定制内核。"
+        },
+        {
+          "title": "生成式召回：稀疏ID与语义ID的自由编排推理加速",
+          "details": [
+            "Paged Beam KVCache：Beam Page Table映射到Paged KV Pool，共享前缀与私有decode块分离。",
+            "Beam Attention：共享前缀Attention与私有后缀Attention拆分并行。",
+            "GPU约束解码：GPU Native CSR Trie支持带约束的并行搜索，保证生成落在合法候选空间。"
+          ],
+          "metrics": [
+            "Paged Beam KVCache推理速度 +40%–45%",
+            "Beam Attention推理速度 +27%–35%",
+            "约束解码性能提升约4–6×"
+          ],
+          "image": "t02-20-00.png",
+          "competitor_insight": "生成式召回要同时解决吞吐与合法性：分页KV、前缀共享Attention与GPU侧约束Trie是可复制的三件套。"
+        },
+        {
+          "title": "议题定位：广告系统智能演进与LLM4Rec叙事",
+          "details": [
+            "演讲标题明确：广告系统的智能演进；副标题强调小米互联网广告算法走向LLM4Rec的实践与思考。",
+            "与阿里云联合共建，把「再调一次模型」升级为推荐底座能力建设。"
+          ],
+          "metrics": [],
+          "image": "t02-06-00.png",
+          "competitor_insight": "对外叙事应锚定「业务指标 + 底座能力」双线索，便于客户理解为何要做框架级投入而非一次性模型替换。"
+        }
+      ],
+      "summary_insights": [
+        "小米路径证明：3个季度ARPU>+8%的主要杠杆是Torch底座、长序列与在线学习，而非单点结构创新。",
+        "LLM4Rec落地需要生成式排序（UltraHSTU）与生成式召回（语义ID）两侧工程同时成熟。",
+        "友商可优先复制「显存可扩、序列可长、更新可分钟级」三项底座能力，再谈百亿参与语义生成。"
+      ]
+    },
+    {
+      "id": "08",
+      "folder": "08-huang-physical",
+      "title": "从数据到真机：PAI Physical AI全栈开发工具链与最佳实践",
+      "speaker": "黄俊",
+      "org": "阿里云智能集团 · 资深算法专家",
+      "overview": "黄俊系统介绍PAI Physical AI全栈工具链：PAI-EgoX、PAI-RoboX、PAI-EAIEval。指出当前迭代周期最大阻碍是数据—训练—评测—部署—真机工具链割裂。EgoX把多源采集加工成标准数据资产并做分级质检；RoboX把标准数据转为可验证策略模型并支撑多仿真RL；EAIEval提供可编排、可复现的分布式统一评测。",
+      "tech_points": [
+        {
+          "title": "痛点：工具链割裂拖垮Physical AI迭代周期",
+          "details": [
+            "主线流程：数据 → 训练 → 评测 → 部署 → 真机，各段之间存在断裂。",
+            "数据侧：来源/格式/相机配置/动作语义不统一，处理效率低，质量难评估，导致重复集成。",
+            "训练侧：模型、SFT/RL与仿真接口分散，多源多本体难组合，RL吞吐与仿真性能不足，导致重复调试。",
+            "评测侧：模型与仿真集成复杂，Benchmark繁多，大规模评测效率低；部署侧新任务/新本体重复搭建，真机失败难归因，经验难复用。"
+          ],
+          "metrics": [],
+          "image": "t02-25-00.png",
+          "competitor_insight": "Physical AI竞争已从单点模型转向全链路工程闭环；友商应先盘点数据/训练/评测/部署断点，而不是只追开源VLA分数。"
+        },
+        {
+          "title": "EgoX：从原始采集到标准数据资产",
+          "details": [
+            "数据金字塔：真机 > UMI手持采集 > Ego第一视角 > 仿真+合成 > 通用数据。",
+            "统一处理Pipeline：真机多模态日志→对齐状态/动作对→Episode；UMI标定与跨本体重定向；Ego视频准入切分、相机/深度、手部重建、时空融合、语义分割并导出LeRobot；仿真并行rollout与特权信号过滤；通用数据去重过滤与recipe。",
+            "质量评估L0–L5：输入自证、覆盖率、物理合理性、时序一致性、位姿/尺度、分段/语义/VLA映射，输出质量报告、数据版本与准入结果。",
+            "基础设施：Ray、DataJuicer、Checkpoint、OSS/CPFS、PAI-DLC。"
+          ],
+          "metrics": [],
+          "image": "t02-28-00.png",
+          "competitor_insight": "数据产品化关键是「多源统一格式 + 分级质检准入 + 版本化资产」；没有L0–L5门禁，上层训练再快也会被脏数据拖垮。"
+        },
+        {
+          "title": "Ego管线：数据质量与处理效率双提升",
+          "details": [
+            "支持ViPE/VITRA，单双目鱼眼与双目针孔等相机配置。",
+            "五段流程：前质检与切分 → 视频与空间理解 → 三维动作恢复（HaWoR/MANO）→ 动作语义与后质检（VLM打标、PAI Token Service）→ 数据交付（LeRobot、OSS/BMCPFS）。",
+            "效率：无效数据过滤、编解码与IO优化（Index Clip/本地缓存）、Ray Data流式DAG与ActorPool、流式固定窗重组。",
+            "效果：双目管线遮挡与重投影误差显著下降；用身份跟踪与双手一致性过滤「他人手」干扰。"
+          ],
+          "metrics": [
+            "管线效率约+44%",
+            "左手遮挡率下降约92.3%；右手遮挡率下降约95.2%",
+            "重投影误差中位数下降约66.7%；长尾下降约89.4%"
+          ],
+          "image": "t02-31-00.png",
+          "competitor_insight": "Ego数据处理要同时优化「过滤无效GPU任务」与「手部位姿精度」；流式DAG + 几何统一估计是吞吐与质量的共同杠杆。"
+        },
+        {
+          "title": "RoboX：把标准数据转化为可验证模型",
+          "details": [
+            "监督学习/模仿学习：可插拔Backbone（VLM/世界模型）与多种Head（自回归序列、并行回归、递归动作专家）；训练策略含CPT/SFT、多模态与跨本体混合；训练引擎统一Trainer，适配DeepSpeed/FSDP/HSDP/Megatron。",
+            "统一策略模型协议：统一模型定义（结构/输入输出/动作语义）、统一运行时接口（训练/动作生成/评测/存取）、资产标准化（权重/配置/tokenizer/版本）。",
+            "强化学习：RL Recipe与编排、Worker层（rollout/训练与本地/服务端ENV）、共享式/分离式/混合式执行模式。"
+          ],
+          "metrics": [],
+          "image": "t02-34-00.png",
+          "competitor_insight": "跨本体复用依赖「统一策略协议」；没有标准输入输出与动作语义，SFT与RL无法在多仿真间迁移。"
+        },
+        {
+          "title": "RoboX RL：多任务多仿真联合训练与系统提效",
+          "details": [
+            "设计原则：共享策略、统一接口、可扩展环境；接入RoboTwin2（双臂）、SIMPLE（操作）、BEHAVIOR（长程）等，Env Adapter+TaskSpec统一Obs/Action/Reward/Success/Horizon。",
+            "流程：任务采样（混合比/难度课程/成功率）→ 并行Rollout → 轨迹处理（reward/advantage、按任务组mask）→ 共享策略更新。",
+            "分布式：Ray WorkerGroup，Env/Rollout/Actor组件化，异构资源与流水并行。",
+            "关键路径优化：仿真瘦身、按需观测对齐Action Chunk、VectorEnv+Tiled Camera与Env/推理/训练异步重叠。"
+          ],
+          "metrics": [
+            "仿真+Rollout吞吐约6×",
+            "端到端训练速度约3.8×（SIMPLE基准）"
+          ],
+          "image": "t02-37-00.png",
+          "competitor_insight": "RL系统优化应先打「观测按需 + 仿真瘦身 + 异步流水」，往往比换算法更能提升有效样本吞吐。"
+        },
+        {
+          "title": "PAI-EAIEval：面向Physical AI的分布式统一评测",
+          "details": [
+            "不可变运行契约：Model Artifact、Evaluation Spec、Environment Snapshot三者版本化，由Run ID绑定模型/任务/环境/Seed/配置。",
+            "统一评测运行时：编排层做任务展开、并行资源分配、状态汇总、失败重试归档；执行闭环由Model Worker、Evaluator、Env Worker交互。",
+            "标准化结果：任务效果、运行性能、证据资产（JSON/日志/视频/配置快照），强调可比较、可复现、可追溯。"
+          ],
+          "metrics": [],
+          "image": "t02-40-00.png",
+          "competitor_insight": "没有不可变契约与证据包，仿真分数无法横向对比；评测应作为一等公民产品，而不是训练脚本附属。"
+        },
+        {
+          "title": "可编排分布式评测：编排/推理/仿真独立扩展",
+          "details": [
+            "三层：编排控制层（User Config + MultiSuiteEvaluator）、并行策略层（Suite/Task/Episode三级并行）、执行资源层（Ray Serve模型池与Multiprocessing+WebSocket仿真池）。",
+            "模型服务无状态多副本负载均衡；仿真进程级状态隔离与长连接绑定，使推理与仿真可独立水平扩展。"
+          ],
+          "metrics": [
+            "RoboCasa-GR1：72 Workers、1200 Episodes",
+            "耗时约30.5分钟",
+            "有效并行约68.7×，并行效率约95.4%"
+          ],
+          "image": "t02-43-00.png",
+          "competitor_insight": "大规模评测要把模型推理与仿真环境拆成独立资源池；并行效率>95%说明编排与失败隔离设计到位，可作为友商评测平台KPI。"
+        }
+      ],
+      "summary_insights": [
+        "Physical AI全栈的主线是EgoX数据资产化、RoboX可验证训练、EAIEval可复现评测三者闭合。",
+        "工具链割裂的代价是重复集成/调试与经验不可复用；统一协议与版本化契约是跨本体规模化的前提。",
+        "友商可对标建设：数据L0–L5门禁、统一策略模型协议、模型池与仿真池解耦的高并行评测。"
+      ]
+    },
+    {
+      "id": "09",
+      "folder": "09-shi-turbox",
+      "title": "从VLA到世界模型：PAI-TurboX加速方案",
+      "speaker": "施兴",
+      "org": "阿里云人工智能平台PAI",
+      "overview": "施兴介绍阿里云PAI上的Physical AI加速方案TurboX：覆盖具身智能、智驾训练与世界模型。针对数据供给、算子搬运、显存重算与跨卡通信四类瓶颈，给出流式数据管线、Prefix-LM Attention拆分、All-to-All通信与零贡献帧删除等优化，并在世界模型训推上给出显著加速数字与CornerCase多视角生成能力。",
+      "tech_points": [
+        {
+          "title": "TurboX总体架构：工具套件 + 四层加速 + PAI底座",
+          "details": [
+            "应用域：具身智能（数据管线、GR0T/PI、VLA）、智驾训练（BEV系列、UniAD、Sparse4D）、世界模型（Wan Multiview、Cosmos）。",
+            "工具套件：TurboX-Benchmark/Doctor/Agent/Optimizer/Algorithms，覆盖基准、瓶颈定位、答疑打包、性能优化与验证复现。",
+            "技术支柱：系统运行时（CPU/NUMA/HugePage、Affinity/NoGIL）、数据与输入（DataLoader/RDL）、框架与算子（Compile/Graph/Kernel/精度）、算法沉淀。",
+            "落地于PAI-DSW开发、PAI-DLC训练、PAI-EAS推理。"
+          ],
+          "metrics": [],
+          "image": "t02-48-00.png",
+          "competitor_insight": "加速方案应产品化为「诊断—优化—复现」工具链，而不是一次性调参报告；与DSW/DLC/EAS同栈才能规模化交付。"
+        },
+        {
+          "title": "计算瓶颈画像：数据、算子、显存与通信",
+          "details": [
+            "数据供给与调度：具身视频/智驾与VLA训练中预处理跟不上，上游占满GPU、下游排队。",
+            "计算与数据搬运：BEV/VLA/世界模型小算子过多导致中间结果反复读写；不变的文本Prompt/参考图被重复送入编码器。",
+            "显存与重复计算：多视角长序列世界模型中激活与状态占显存，限制batch并迫使重算拉长训练。",
+            "通信与跨卡等待：多机/多视角特征先Gather再切分，产生无效冗余传输。"
+          ],
+          "metrics": [],
+          "image": "t02-51-00.png",
+          "competitor_insight": "优化前先做瓶颈分类；很多「训练慢」实际是输入等待或重复编码，换更大卡并不能自动解决。"
+        },
+        {
+          "title": "具身智能数据管线：流式并行与资源协同",
+          "details": [
+            "流式处理：片段就绪即进入下一阶段，缩短端到端等待。",
+            "细粒度任务：拆分长视频，减少长任务拖尾，提高资源填充率。",
+            "取消整批等待：已完成窗口立即拼接，提早启动后续VLM等步骤。",
+            "合理分配GPU：提前启动VLM标注并保持视觉感知/手部重建/语义标注并发。"
+          ],
+          "metrics": [
+            "流式处理时延约降56%（示例对比54→24）",
+            "细粒度任务资源利用率可提升至约63%量级",
+            "取消整批等待约再降24%时间"
+          ],
+          "image": "t03-00-00.png",
+          "competitor_insight": "具身视频管线要用流式与细粒度调度替代「整批屏障」；GPU配额应围绕VLM标注等重步骤提前并发，而不是串行占满。"
+        },
+        {
+          "title": "Prefix-LM Attention优化：拆分计算以启用FlashAttention",
+          "details": [
+            "场景：视觉前缀双向理解 + 后缀因果预测的Prefix-LM；混合mask无法直接走FlashAttention，易回退到更慢的CUTLASS memory-efficient核。",
+            "解法：前缀与后缀分别计算再按行拼接——前缀Q只读前缀K/V（causal=False），后缀Q读全量K/V并保持因果（causal=True）。",
+            "每路Query独立归一化，避免复杂LSE合并。"
+          ],
+          "metrics": [
+            "Attention前向/反向速度约+290%",
+            "端到端训练吞吐约+31%"
+          ],
+          "image": "t03-05-00.png",
+          "competitor_insight": "多模态长前缀模型要主动改造Attention实现以吃到FlashAttention；混合mask直通往往是隐性性能陷阱。"
+        },
+        {
+          "title": "世界模型训练：减少跨卡传输与重复调用",
+          "details": [
+            "通信：从多次All-Gather再切分改为按目标分片All-to-All，打包时重排、解包完成目标布局与RoPE。",
+            "视角合批：把N组调用合并为约3组（RoPE兼容可进一步到2组），减少Block调用与参数聚合。",
+            "删除零贡献帧：去掉不被有效token读取、不参与loss的帧，保持训练目标与位置关系，压缩序列。"
+          ],
+          "metrics": [
+            "通信量约减少75%",
+            "视角合批：时间约-3.0%，显存约节省3.7GiB",
+            "序列长度约缩短4.8%，单步训练约减少1.2秒",
+            "整体训练吞吐约+47%"
+          ],
+          "image": "t03-09-00.png",
+          "competitor_insight": "多视角世界模型优化应坚持「只交换需要的数据、合并同形状视角、删除不贡献loss的计算」三条原则。"
+        },
+        {
+          "title": "世界模型：算法与工程协同加速",
+          "details": [
+            "模型侧：TeaCache/CFGCache计算复用、稀疏/线性Attention、蒸馏与Reward模型兼顾效果与效率。",
+            "工程侧：VAE/DiT多卡并行重叠计算通信、FP8适配Attention/Linear、Conv/RMSNorm/RoPE/FlashAttention等算子优化。",
+            "在GU8T/PPU1.5/GU108/GU100等多硬件上相对Baseline给出训练与推理加速对比。"
+          ],
+          "metrics": [
+            "训练耗时加速约19%–40%",
+            "推理速度加速约62%–87%"
+          ],
+          "image": "t03-08-00.png",
+          "competitor_insight": "世界模型加速必须算法技巧与工程内核同迭代；只做一侧很难同时拿到训练与推理的大幅收益。"
+        },
+        {
+          "title": "多视角世界模型：CornerCase生成能力",
+          "details": [
+            "展示六路同步相机视角（前/前左/前右/后/后左/后右）一致生成稀有CornerCase场景。",
+            "示例：道路中央出现大象等真实采集极难覆盖的边缘事件，用于增强智驾/世界模型鲁棒性。"
+          ],
+          "metrics": [],
+          "image": "t03-07-00.png",
+          "competitor_insight": "合成数据价值在「多视角一致性的长尾场景」；友商评测应增加跨相机几何一致性检查，而不只看单视角观感。"
+        }
+      ],
+      "summary_insights": [
+        "TurboX把Physical AI加速拆成运行时、数据、算子与算法沉淀，并与PAI训推产品闭环。",
+        "世界模型场景的关键增益来自通信形态改造、视角合批、零贡献帧删除与Prefix-LM FlashAttention化。",
+        "友商自建加速团队时，应同时交付Doctor级瓶颈定位与可复现Benchmark，避免优化不可迁移。"
+      ]
+    },
+    {
+      "id": "10",
+      "folder": "10-roundtable",
+      "title": "费莫一科技 × 穹彻智能 × 流形空间 × 阿里云：具身智能前沿对话",
+      "speaker": "曹志（主持）、刘念邱、吕峻、武伟",
+      "org": "阿里云智能 / PHYMI费莫一科技 / 穹彻智能 / Manifold AI流形空间",
+      "overview": "圆桌由阿里云智能高级解决方案架构师曹志主持，邀请费莫一科技创始人兼CEO刘念邱、穹彻智能AI科学家吕峻、流形空间创始人兼CEO武伟，围绕具身智能前沿展开对话。回放画面以嘉宾阵容与现场讨论为主；结合论坛同期发布口径，三家创业公司分别从Physical Agent、UMI数据管线、世界模型训练侧与PAI全栈能力对接，体现「云平台 + 垂直具身团队」协同落地。",
+      "tech_points": [
+        {
+          "title": "圆桌定位与嘉宾阵容：云平台×三家具身创业公司",
+          "details": [
+            "正式议题：费莫一科技 × 穹彻智能 × 流形空间 × 阿里云：具身智能前沿对话（Frontier Dialogue on Embodied AI）。",
+            "嘉宾（姓氏字母序展示）：曹志（阿里云智能集团高级解决方案架构师）、刘念邱（PHYMI费莫一科技创始人兼CEO）、吕峻（穹彻智能AI科学家）、武伟（Manifold AI流形空间创始人兼CEO）。",
+            "现场四人同台白椅对谈，曹志侧身主持引导，观众席满座，体现具身智能从专题演讲进入生态对话环节。"
+          ],
+          "metrics": [],
+          "image": "t03-13-20.png",
+          "competitor_insight": "云厂商做Physical AI不能只发工具链，还要用「平台架构师 + 垂直创业CEO/科学家」圆桌把真实落地约束讲清楚，增强客户信任。"
+        },
+        {
+          "title": "费莫一科技：面向开放动态真实世界的Physical Agent",
+          "details": [
+            "回放中刘念邱持麦发言，代表费莫一给出创业侧实践视角。",
+            "论坛同期口径：费莫一与PAI共同探索具身研发，打造面向开放动态真实世界的Physical Agent，将跨场景移动与操作连接，并随现场变化持续行动以达成复杂目标。",
+            "方向强调从「展示型动作」走向「目标驱动的长程移动+操作」闭环，与前序EgoX/RoboX数据到真机叙事衔接。"
+          ],
+          "metrics": [],
+          "image": "t03-33-20.png",
+          "competitor_insight": "友商评估具身合作伙伴时，应看其是否具备「目标—移动—操作—反馈」长程闭环，而不是单点动作demo。"
+        },
+        {
+          "title": "穹彻智能：云上UMI Data + AI Pipeline自动化",
+          "details": [
+            "吕峻作为穹彻智能AI科学家出席，对应数据与训练效率议题。",
+            "论坛发布口径：穹彻基于PAI与MaxCompute、Hologres、DataWorks等搭建云上UMI Data + AI Pipeline，实现数据处理全流程自动化。",
+            "与黄俊EgoX中「UMI数据」层级呼应：手持采集→标定/位姿恢复→跨本体重定向，需要云上流水线才能规模化。"
+          ],
+          "metrics": [
+            "数据处理整体吞吐提升超过10倍（论坛发布口径）",
+            "模型训练效率提升约50%（论坛发布口径）"
+          ],
+          "image": "t03-26-40.png",
+          "competitor_insight": "UMI/Ego类数据若不上云做自动化管线，标注与吞吐会迅速成为瓶颈；应将DataWorks类编排与训练集群打通。"
+        },
+        {
+          "title": "流形空间：依托PAI推进世界模型创新",
+          "details": [
+            "武伟作为流形空间创始人兼CEO出席，侧重世界模型与大规模训练。",
+            "论坛口径：流形空间借助PAI加速数据处理、模型训练与推理部署，利用大规模分布式训练、算子级性能优化与稳定资源调度推进世界模型。",
+            "与施兴TurboX中多视角世界模型、通信/算子加速主题同向，形成「创业算法团队 + 平台加速引擎」组合。"
+          ],
+          "metrics": [],
+          "image": "t03-40-00.png",
+          "competitor_insight": "世界模型创业团队应尽早接入平台级算子/通信优化与调度体系，否则多视角长序列训练成本会先于算法上限到达。"
+        },
+        {
+          "title": "主持与现场互动：从发布到开放问答的转换",
+          "details": [
+            "曹志作为阿里云侧主持人，串联平台能力与三家创业实践，现场多次转向嘉宾互动。",
+            "圆桌无PPT内容页，信息密度在「人与组织」：谁在做Physical Agent、谁在做数据管线、谁在做世界模型、云侧如何承接。",
+            "与前两场（Physical AI工具链、TurboX加速）形成「产品发布→加速引擎→生态对话」收束。"
+          ],
+          "metrics": [],
+          "image": "t03-36-40.png",
+          "competitor_insight": "大型论坛收束环节应用圆桌把三类客户画像（真机Agent、数据工厂、世界模型）映射到同一平台故事，降低客户选型成本。"
+        },
+        {
+          "title": "生态启示：Physical AI需要平台与垂直团队共建",
+          "details": [
+            "四家同台本身即产品信号：阿里云提供PAI全栈，费莫一攻Physical Agent，穹彻攻UMI数据闭环，流形攻世界模型。",
+            "对应论坛Physical AI三大引擎叙事：数据（EgoX/UMI管线）、训练（RoboX）、算力优化（TurboX）需要外部标杆客户共同打磨。",
+            "观众席高关注度说明具身智能已从概念热进入「谁能工程化落地」的比较阶段。"
+          ],
+          "metrics": [],
+          "image": "t03-46-40.png",
+          "competitor_insight": "友商若只做平台或只做垂直应用，都难形成闭环；应明确自己在数据、策略模型、世界模型、真机Agent中的主战场并寻找互补伙伴。"
+        }
+      ],
+      "summary_insights": [
+        "圆桌把PAI Physical AI从产品发布延伸为生态对话：Agent、数据管线、世界模型三类创业路径并列。",
+        "公开口径中的吞吐/训练效率数字（穹彻）说明数据工厂是具身落地的第一瓶颈之一。",
+        "对友商：用「平台能力 × 垂直标杆客户」组合讲述Physical AI，比单独堆叠开源模型列表更有说服力。"
+      ]
+    }
+  ]
+}
