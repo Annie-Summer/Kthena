@@ -28,3 +28,6 @@
 - `screenshots/`：按议题分目录截图
 - `notes/`：时间轴与结构化底稿
 - `generate_docs.py`：生成 `docs/*.docx`
+- `generate_insight_ppt.py`：按子议题生成一页洞察 PPT（洞察页 + 截图佐证页，风格同 CIPU；视角为 HCS 技术规划）
+  - `python3 generate_insight_ppt.py --forum agenda201`
+  - 产出：`docs/洞察一页-XX-*.pptx`，裁图：`assets/evidence/`

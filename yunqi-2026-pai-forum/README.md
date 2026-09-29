@@ -28,4 +28,7 @@
 - `screenshots/`：按议题分目录的回放截图
 - `notes/talks_*.json`：结构化底稿
 - `generate_docs.py`：生成 `docs/*.docx`
+- `generate_insight_ppt.py`：按子议题生成一页洞察 PPT（洞察页 + 截图佐证页，风格同 CIPU）
+  - `python3 generate_insight_ppt.py --forum pai`
+  - 产出：`docs/洞察一页-XX-*.pptx`，裁图：`assets/evidence/`
 - `capture_video.py` / ffmpeg 抽帧：截图采集
