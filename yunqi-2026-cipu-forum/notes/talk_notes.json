@@ -83,9 +83,82 @@
         "建议 PPT 叙事弧：问题（Agentic 瓶颈迁移）→ 证据（八场技术点）→ 判断（分层/拆分/平台化）→ 动作（近/中/远）。",
         "建议开场页：一张「效率公式 + 分层栈 + 拆分架构」总图。",
         "建议结束页：三句金句 + 90 天行动清单。",
-        "金句候选：算力廉价、数据访问昂贵；停得久≠价值低；先拆分再堆料，先仿真再到柜。"
+        "金句候选：算力廉价、数据访问昂贵；停得久≠价值低；先拆分再堆料，先仿真再到柜。",
+        "页建议：跨场关键指标对比总表（时长/带宽/加速比/准确率一页呈现）。"
       ]
-    }
+    },
+    "metrics": [
+      {
+        "name": "运维工单处理时长",
+        "baseline": "5.5 h",
+        "improved": "0.47 h",
+        "delta": "约 -91% / 人效 ~12×",
+        "source": "Talk3 Infini-AIOps"
+      },
+      {
+        "name": "训练网络有效带宽（多路径喷洒）",
+        "baseline": "ECMP 冲突场景",
+        "improved": "喷洒后",
+        "delta": "约 +60%",
+        "source": "Talk1 CIPU"
+      },
+      {
+        "name": "SACK goodput（5% 丢包）",
+        "baseline": "Go-back-N",
+        "improved": "SACK",
+        "delta": "约 90% goodput",
+        "source": "Talk1 CIPU"
+      },
+      {
+        "name": "KVCache offload 吞吐 / TTFT",
+        "baseline": "未池化/未 offload",
+        "improved": "Tair Memory Pool",
+        "delta": "吞吐 +50%+ / TTFT -30%",
+        "source": "Talk4"
+      },
+      {
+        "name": "AL144 vs AL128 单柜 Scale-up",
+        "baseline": "AL128",
+        "improved": "AL144",
+        "delta": "144 卡（约 2×）",
+        "source": "Talk6"
+      },
+      {
+        "name": "AL144 单柜功率",
+        "baseline": "AL128",
+        "improved": "750 kW",
+        "delta": "约 2.15×",
+        "source": "Talk6"
+      },
+      {
+        "name": "大 EP 推理性能",
+        "baseline": "非超节点/前代",
+        "improved": "超节点",
+        "delta": ">40%",
+        "source": "Talk6"
+      },
+      {
+        "name": "Kernel Agent 案例（H100 BF16）",
+        "baseline": "9.52 ms",
+        "improved": "1.95 ms",
+        "delta": "约 4.88×",
+        "source": "Talk7"
+      },
+      {
+        "name": "Hisim 仿真准确率",
+        "baseline": "—",
+        "improved": "整体 96%+",
+        "delta": "高保真选型前移",
+        "source": "Talk8"
+      },
+      {
+        "name": "CPU:GPU 配比（Agentic）",
+        "baseline": "约 1:8（生成式）",
+        "improved": "约 1:1～1:2",
+        "delta": "每 GW CPU 核数约 4×",
+        "source": "Talk2"
+      }
+    ]
   },
   {
     "filename": "01-CIPU技术深度解读-杨航.docx",
@@ -216,9 +289,47 @@
         "页建议：五代演进时间线 + 第五代能力清单。",
         "页建议：GPU 裸金属八项安全底线 Checklist。",
         "页建议：推理三路径 / 训练四优化对照表（问题→机制→收益数字）。",
-        "洞察金句：算力廉价、数据访问昂贵；安全是严肃云的差异化。"
+        "洞察金句：算力廉价、数据访问昂贵；安全是严肃云的差异化。",
+        "页建议：带宽代际 + SACK/喷洒收益数字对照条。"
       ]
-    }
+    },
+    "metrics": [
+      {
+        "name": "CIPU 网络带宽代际",
+        "baseline": "2017: 2×10GbE",
+        "improved": "2024: 2×200GbE",
+        "delta": "单口带宽 20× 级跃迁",
+        "source": "五代演进"
+      },
+      {
+        "name": "能量成本对照",
+        "baseline": "Int Add ~0.03 pJ/op",
+        "improved": "DRAM ~1300 pJ/op",
+        "delta": "访存远贵于算力（瓶颈转移）",
+        "source": "能耗图"
+      },
+      {
+        "name": "SACK（5% 丢包）",
+        "baseline": "Go-back-N",
+        "improved": "SACK",
+        "delta": "约 90% goodput",
+        "source": "训练网络"
+      },
+      {
+        "name": "多路径报文喷洒",
+        "baseline": "大象流 ECMP 冲突",
+        "improved": "喷洒负载均衡",
+        "delta": "有效带宽约 +60%",
+        "source": "训练网络"
+      },
+      {
+        "name": "推理数据面路径",
+        "baseline": "通用/非专用通道",
+        "improved": "VSC / NVMe KV / OSS GDS over eRDMA",
+        "delta": "多租高性能三路径落地",
+        "source": "推理存储"
+      }
+    ]
   },
   {
     "filename": "02-RISC-V-CPU机遇创新实践-傅晶晶.docx",
@@ -338,9 +449,61 @@
         "页建议：CPU:GPU 配比演变 + 每 GW 核数 4×。",
         "页建议：CPU 五角色一张图。",
         "页建议：C950 Titan/Pulsar 规格卡 + 云芯协同五步。",
-        "洞察金句：Agentic 时代，CPU 从配角回到编排与数据路径中心。"
+        "洞察金句：Agentic 时代，CPU 从配角回到编排与数据路径中心。",
+        "页建议：CPU:GPU 配比与每GW核数4×、C950 FP4>8TFLOPS 指标卡。"
       ]
-    }
+    },
+    "metrics": [
+      {
+        "name": "CPU:GPU 配比",
+        "baseline": "约 1:8",
+        "improved": "约 1:1～1:2",
+        "delta": "Agentic 结构性回流",
+        "source": "配比重构"
+      },
+      {
+        "name": "每 GW CPU 核数需求",
+        "baseline": "生成式时代基线",
+        "improved": "Agentic",
+        "delta": "约 4×",
+        "source": "TrendForce 引用口径"
+      },
+      {
+        "name": "CPU 成本占比",
+        "baseline": "约 15%",
+        "improved": "40%+",
+        "delta": "BOM 结构变化",
+        "source": "成本结构"
+      },
+      {
+        "name": "Coding Agent Token 放大",
+        "baseline": "单次问答",
+        "improved": "Agent 闭环",
+        "delta": "10–15×",
+        "source": "负载特征"
+      },
+      {
+        "name": "玄铁 C950 频率/发射",
+        "baseline": "—",
+        "improved": ">3GHz / 8-issue / RVA23.1",
+        "delta": "旗舰服务器基线",
+        "source": "规格卡"
+      },
+      {
+        "name": "Pulsar 单核 FP4",
+        "baseline": "—",
+        "improved": ">8 TFLOPS",
+        "delta": "矩阵进入 CPU 主线",
+        "source": "Titan/Pulsar"
+      },
+      {
+        "name": "SPECint2006",
+        "baseline": "—",
+        "improved": "70+",
+        "delta": "通用性能锚点",
+        "source": "规格卡"
+      }
+    ]
   },
   {
     "filename": "03-多芯异构集群AIOps实践-吴保东.docx",
@@ -451,9 +614,54 @@
         "页建议：aiops-data / aiops-chaos 架构图。",
         "页建议：Infini-AIOps 四层架构。",
         "页建议：5.5h→0.47h 收益曲线（业务结果页）。",
-        "洞察金句：先评测基础设施，再谈运维智能体。"
+        "洞察金句：先评测基础设施，再谈运维智能体。",
+        "页建议：5.5h→0.47h（-91%）与人效12×结果页。"
       ]
-    }
+    },
+    "metrics": [
+      {
+        "name": "样例问题集规模",
+        "baseline": "—",
+        "improved": "约 1519 / 均 1.2h",
+        "delta": "人工基线画像",
+        "source": "痛点量化"
+      },
+      {
+        "name": "诊断准确率（人工）",
+        "baseline": "—",
+        "improved": "<60%",
+        "delta": "准确率瓶颈",
+        "source": "痛点量化"
+      },
+      {
+        "name": "告警收敛率（人工）",
+        "baseline": "—",
+        "improved": "约 60–70%",
+        "delta": "噪声高",
+        "source": "痛点量化"
+      },
+      {
+        "name": "评测数据",
+        "baseline": "通用 Benchmark",
+        "improved": "aiops-data 1600+ 工单+告警",
+        "delta": "真实可复现",
+        "source": "评测床"
+      },
+      {
+        "name": "工单处理时长",
+        "baseline": "5.5 h（峰值口径）",
+        "improved": "0.47 h",
+        "delta": "约 -91%",
+        "source": "Infini-AIOps 实测"
+      },
+      {
+        "name": "人效",
+        "baseline": "人工链路",
+        "improved": "Agent 闭环",
+        "delta": "约 12×",
+        "source": "Infini-AIOps 实测"
+      }
+    ]
   },
   {
     "filename": "04-KVCache推理基础设施-王正恒徐国强.docx",
@@ -576,9 +784,61 @@
         "页建议：G1–G4 分层指标表（带宽/时延/容量/语义）。",
         "页建议：UMX vs 传统 RDMA 内存池对照。",
         "页建议：HiSim 决策闭环（仿真→配置→回流）。",
-        "洞察金句：KVCache 是推理资产，不是显存垃圾。"
+        "洞察金句：KVCache 是推理资产，不是显存垃圾。",
+        "页建议：吞吐+50%+/TTFT-30%/TCO降幅 指标三联图。"
       ]
-    }
+    },
+    "metrics": [
+      {
+        "name": "KVCache offload 吞吐",
+        "baseline": "未 offload",
+        "improved": "Tair Memory Pool",
+        "delta": "+50%+",
+        "source": "MemPool 实测"
+      },
+      {
+        "name": "TTFT",
+        "baseline": "未 offload",
+        "improved": "Tair Memory Pool",
+        "delta": "-30%",
+        "source": "MemPool 实测"
+      },
+      {
+        "name": "多网卡传输效率",
+        "baseline": "—",
+        "improved": "93%+",
+        "delta": "数据面效率",
+        "source": "MemPool"
+      },
+      {
+        "name": "Token 级 TCO（宣称）",
+        "baseline": "DRAM 为主",
+        "improved": "分层介质",
+        "delta": "降幅超 80%（幻灯口径）",
+        "source": "介质五需求"
+      },
+      {
+        "name": "HiSim 仿真误差（宣称）",
+        "baseline": "经验配置",
+        "improved": "仿真驱动",
+        "delta": "<3% 量级",
+        "source": "HiSim"
+      },
+      {
+        "name": "分层栈",
+        "baseline": "单机 HBM",
+        "improved": "G1→G1.5→G2→G2.5→G3→G3.5→G4",
+        "delta": "容量与语义解耦",
+        "source": "G1–G4"
+      },
+      {
+        "name": "AMES 量级（表述）",
+        "baseline": "—",
+        "improved": "~3.2TB/s/tray；<2μs；8TB+/tray",
+        "delta": "Scale-up 内存扩展",
+        "source": "G1.5"
+      }
+    ]
   },
   {
     "filename": "05-存储软硬协同之路-常存银.docx",
@@ -711,9 +971,75 @@
         "页建议：介质金字塔 + 自研部件定位。",
         "页建议：AliSCM/PCM/TLC/QLC 规格卡。",
         "页建议：GPU 六级分层拓扑图。",
-        "洞察金句：没有一套存储通吃；温度与阶段决定架构。"
+        "洞察金句：没有一套存储通吃；温度与阶段决定架构。",
+        "页建议：AliSCM/PCM/TLC/QLC 关键规格对比表。"
       ]
-    }
+    },
+    "metrics": [
+      {
+        "name": "训练顺序写",
+        "baseline": "—",
+        "improved": "≥20GB/s（集群 TB/s）",
+        "delta": "吞吐优先",
+        "source": "三阶段需求"
+      },
+      {
+        "name": "推理随机读",
+        "baseline": "—",
+        "improved": "10–30GB/s；IOPS ≥200K；<100μs",
+        "delta": "时延/IOPS",
+        "source": "三阶段需求"
+      },
+      {
+        "name": "单请求 KV 体量例",
+        "baseline": "—",
+        "improved": "Llama70B/128K ≈336GB",
+        "delta": "必须分层卸载",
+        "source": "推理场景"
+      },
+      {
+        "name": "Agentic P99",
+        "baseline": "—",
+        "improved": "<10ms（混合并发）",
+        "delta": "记忆/元数据并发",
+        "source": "Agentic"
+      },
+      {
+        "name": "AliSCM 延迟/吞吐",
+        "baseline": "SSD 块语义",
+        "improved": "~200ns / ~20GB/s；256GB–1TB",
+        "delta": "近 DRAM + 持久化",
+        "source": "AliSCM"
+      },
+      {
+        "name": "PCM SSD 耐久",
+        "baseline": "消费级/普通企业盘",
+        "improved": "100 DWPD；无盘内 GC",
+        "delta": "热路径寿命",
+        "source": "PCM SSD"
+      },
+      {
+        "name": "AliFlash V6 TLC",
+        "baseline": "前代 PCIe",
+        "improved": "PCIe 6.0；读28/写22GB/s；读7M IOPS",
+        "delta": "热温带宽",
+        "source": "V6 TLC"
+      },
+      {
+        "name": "AliFlash V5 QLC 容量",
+        "baseline": "—",
+        "improved": "16–128TB",
+        "delta": "冷数据/$",
+        "source": "V5 QLC"
+      },
+      {
+        "name": "磐久大容量单机",
+        "baseline": "—",
+        "improved": "34PB；按需上电",
+        "delta": "功耗约 -70%",
+        "source": "磐久"
+      }
+    ]
   },
   {
     "filename": "06-异构算力软硬件结合技术体系-卢晓伟.docx",
@@ -839,9 +1165,75 @@
         "页建议：AL144 vs AL128 能力对照。",
         "页建议：A/F 异构超节点示意。",
         "页建议：震旦四层平台 + 诊断闭环。",
-        "洞察金句：芯片是乘数之一；调度与成熟度决定能否乘上去。"
+        "洞察金句：芯片是乘数之一；调度与成熟度决定能否乘上去。",
+        "页建议：AL144 vs AL128（2×/2.15×/1.75×）对照页。"
       ]
-    }
+    },
+    "metrics": [
+      {
+        "name": "单柜 Scale-up 卡数",
+        "baseline": "AL128",
+        "improved": "AL144 最大 144 卡",
+        "delta": "约 2×",
+        "source": "AI Infra 3.0"
+      },
+      {
+        "name": "单柜功率",
+        "baseline": "AL128",
+        "improved": "750 kW",
+        "delta": "约 2.15×",
+        "source": "AI Infra 3.0"
+      },
+      {
+        "name": "GPU TBP",
+        "baseline": "AL128",
+        "improved": "3500 W",
+        "delta": "约 1.75×",
+        "source": "AI Infra 3.0"
+      },
+      {
+        "name": "并柜 / 二级光扩展",
+        "baseline": "扩展弱",
+        "improved": "并柜 288；至 10368 卡",
+        "delta": "千卡/万卡扩展",
+        "source": "AI Infra 3.0"
+      },
+      {
+        "name": "大 EP 推理",
+        "baseline": "前代/非超节点",
+        "improved": "超节点",
+        "delta": ">40%",
+        "source": "超节点趋势"
+      },
+      {
+        "name": "内存供需缺口",
+        "baseline": "HBM 容量增 ~3.6×",
+        "improved": "模型内存需求 ~16×",
+        "delta": "缺口约 4.4×",
+        "source": "结构演进"
+      },
+      {
+        "name": "诊断假阳性/假阴性",
+        "baseline": "—",
+        "improved": "0% / <1%",
+        "delta": "60+ 测例覆盖",
+        "source": "诊断平台"
+      },
+      {
+        "name": "调度失败率",
+        "baseline": "改造前",
+        "improved": "改造后",
+        "delta": "降 60–70%",
+        "source": "诊断/监控"
+      },
+      {
+        "name": "供电可靠性",
+        "baseline": "—",
+        "improved": "6 个 9",
+        "delta": "机柜级工程指标",
+        "source": "AL144"
+      }
+    ]
   },
   {
     "filename": "07-AI推理全栈优化实战-资彦义李陈浩文.docx",
@@ -961,9 +1353,54 @@
         "页建议：绿/黄/红调度状态机。",
         "页建议：Kernel-per-Op vs Mega Kernel。",
         "页建议：4.88× 与跨芯片加速案例条。",
-        "洞察金句：停得久≠价值低；微秒尺度看 kernel 之间。"
+        "洞察金句：停得久≠价值低；微秒尺度看 kernel 之间。",
+        "页建议：4.88× 与跨芯 1.2–2.1× 加速条形图。"
       ]
-    }
+    },
+    "metrics": [
+      {
+        "name": "H100 BF16 矩阵向量乘",
+        "baseline": "9.52 ms",
+        "improved": "1.95 ms（Kernel Agent）",
+        "delta": "约 4.88×",
+        "source": "并行探索案例"
+      },
+      {
+        "name": "PPU MoE gate+mask+copy",
+        "baseline": "SGLang 基线",
+        "improved": "优化后",
+        "delta": "约 1.56–2.13×",
+        "source": "PPU 迁移"
+      },
+      {
+        "name": "PPU RMSNorm+量化 / SiLU 链",
+        "baseline": "SGLang 基线",
+        "improved": "优化后",
+        "delta": "约 1.23–1.29×",
+        "source": "PPU"
+      },
+      {
+        "name": "AMD DSA Decode",
+        "baseline": "基线",
+        "improved": "优化后",
+        "delta": "约 1.6×",
+        "source": "AMD 迁移"
+      },
+      {
+        "name": "AMD GDN 递推核",
+        "baseline": "基线",
+        "improved": "优化后",
+        "delta": "约 1.18×",
+        "source": "AMD"
+      },
+      {
+        "name": "缓存策略",
+        "baseline": "LRU（易误删暂停会话）",
+        "improved": "Agentic KV 价值排序",
+        "delta": "减少强制 Prefill",
+        "source": "Agentic KV"
+      }
+    ]
   },
   {
     "filename": "08-未来大模型推理系统架构探索-李文韬.docx",
@@ -1089,8 +1526,46 @@
         "页建议：A 卡 / F 卡规格画像。",
         "页建议：Hisim 96%+ 与虚拟时钟机制。",
         "页建议：9–12 月里程碑路线图。",
-        "洞察金句：先拆分，再堆料；先仿真，再到柜。"
+        "洞察金句：先拆分，再堆料；先仿真，再到柜。",
+        "页建议：Hisim 96%+ 与 P/D+AFD 拆分收益假设页。"
       ]
-    }
+    },
+    "metrics": [
+      {
+        "name": "上下文长度趋势",
+        "baseline": "约 128K",
+        "improved": "约 1M 级",
+        "delta": "长上下文压力",
+        "source": "模型趋势"
+      },
+      {
+        "name": "MoE 参数形态例",
+        "baseline": "—",
+        "improved": "总参可达 2.8T / 激活 ~95B",
+        "delta": "稀疏激活 vs 容量",
+        "source": "模型趋势"
+      },
+      {
+        "name": "Groq LPU 极端点（对照）",
+        "baseline": "大容量 HBM 路线",
+        "improved": "~1200 TFLOPS FP8；SRAM ~250TB/s；~0.5GB",
+        "delta": "高带宽低容量",
+        "source": "硬件对照"
+      },
+      {
+        "name": "Hisim 仿真准确率",
+        "baseline": "无实物猜测",
+        "improved": "整体 96%+",
+        "delta": "选型前移",
+        "source": "Insight/Hisim"
+      },
+      {
+        "name": "架构形态",
+        "baseline": "单卡/同构堆叠",
+        "improved": "P/D + AFD；A卡/LPU F卡",
+        "delta": "按阶段/算子拆分",
+        "source": "未来架构"
+      }
+    ]
   }
 ]
