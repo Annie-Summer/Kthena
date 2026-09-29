@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""为 PAI / Agent Infra 论坛各子议题生成与 CIPU 同风格的一页洞察 PPT（洞察页+截图佐证页）。"""
+"""为 PAI / Agent Infra 论坛各子议题生成与 CIPU 同风格的一页洞察 PPT（洞察页+截图佐证页）。
+
+文案原则：完整、明确、清晰；禁止用省略号截断观点。过长时按句号/分号取整句，或改写为仍完整的短句。
+"""
 from __future__ import annotations
 
 import argparse
@@ -11,7 +14,7 @@ from PIL import Image
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
-from pptx.enum.text import PP_ALIGN
+from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.oxml import parse_xml
 from pptx.oxml.ns import qn
 from pptx.util import Inches, Pt
@@ -59,10 +62,16 @@ def rect(slide, x, y, w, h, fill=None, line=None, line_w=1.0):
     return sh
 
 
-def textbox(slide, x, y, w, h, text, size=14, bold=False, color=DARK, align=PP_ALIGN.LEFT):
+def textbox(slide, x, y, w, h, text, size=14, bold=False, color=DARK, align=PP_ALIGN.LEFT, anchor=None):
     box = slide.shapes.add_textbox(x, y, w, h)
     tf = box.text_frame
     tf.word_wrap = True
+    if anchor is not None:
+        tf.auto_size = None
+        try:
+            tf._txBody.bodyPr.set("anchor", {MSO_ANCHOR.TOP: "t", MSO_ANCHOR.MIDDLE: "ctr", MSO_ANCHOR.BOTTOM: "b"}[anchor])
+        except Exception:
+            pass
     p = tf.paragraphs[0]
     p.alignment = align
     run = p.add_run()
@@ -71,7 +80,7 @@ def textbox(slide, x, y, w, h, text, size=14, bold=False, color=DARK, align=PP_A
     return box
 
 
-def multilines(slide, x, y, w, h, lines, size=13, color=MID, spacing=4, bold_first=False):
+def multilines(slide, x, y, w, h, lines, size=13, color=MID, spacing=3, bold_first=False):
     box = slide.shapes.add_textbox(x, y, w, h)
     tf = box.text_frame
     tf.word_wrap = True
@@ -85,55 +94,200 @@ def multilines(slide, x, y, w, h, lines, size=13, color=MID, spacing=4, bold_fir
     return box
 
 
+def clean(s: str) -> str:
+    s = re.sub(r"\s+", " ", (s or "").strip())
+    s = s.replace("…", "").replace("...", "")
+    return s
+
+
+def split_sentences(s: str, seps: str = "。！？；;") -> list[str]:
+    s = clean(s)
+    if not s:
+        return []
+    parts: list[str] = []
+    buf = ""
+    for ch in s:
+        buf += ch
+        if ch in seps:
+            parts.append(buf.strip())
+            buf = ""
+    if buf.strip():
+        parts.append(buf.strip())
+    return [p for p in parts if p]
+
+
+def take_complete(s: str, max_chars: int) -> str:
+    """Keep whole sentence(s) that fit. Never append ellipsis; never cut mid-sentence."""
+    s = clean(s)
+    if not s:
+        return ""
+    if len(s) <= max_chars:
+        return s
+    sentences = split_sentences(s)
+    acc = ""
+    for sent in sentences:
+        candidate = (acc + sent).strip()
+        if len(candidate) <= max_chars:
+            acc = candidate
+        else:
+            break
+    if acc:
+        return acc
+    # Single overlong sentence: keep a complete clause ending with ，/： if that clause itself is a clear viewpoint
+    chunk = s[:max_chars]
+    for sep in ["；", ";", "。", "！", "？"]:
+        idx = chunk.rfind(sep)
+        if idx >= 12:
+            return chunk[: idx + 1].strip()
+    for sep in ["，", ","]:
+        idx = chunk.rfind(sep)
+        if idx >= max(20, max_chars * 2 // 3):
+            # Only accept long-enough clause so meaning stays intact
+            return chunk[:idx].strip()
+    # Prefer returning the full original over a mangled fragment
+    return s
+
+
+def short_title(title: str, max_chars: int = 18) -> str:
+    title = clean(title)
+    # Prefer left of colon for punchy CIPU-style titles
+    for sep in ["：", ":", "——", "—", " - "]:
+        if sep in title:
+            left, right = title.split(sep, 1)
+            left, right = left.strip(), right.strip()
+            # Prefer right if left is generic/long; else left
+            if 4 <= len(right) <= max_chars:
+                return right
+            if 4 <= len(left) <= max_chars:
+                return left
+            cand = right if len(right) < len(left) else left
+            return take_complete(cand, max_chars)
+    return take_complete(title, max_chars)
+
+
+def bulletize(details: list[str], limit=4, max_chars=72) -> list[str]:
+    """Keep complete viewpoints; prefer full sentences over mid-clause cuts."""
+    out = []
+    for d in details:
+        if len(out) >= limit:
+            break
+        t = clean(d)
+        if not t:
+            continue
+        t = re.sub(r"^[•\-]\s*", "", t)
+        if len(t) > max_chars:
+            sents = split_sentences(t)
+            if sents:
+                # Prefer the first full sentence even if a bit over budget
+                if len(sents[0]) <= max_chars + 24:
+                    t = sents[0].rstrip("。；;")
+                elif "；" in t or ";" in t:
+                    first = re.split(r"[；;]", t, 1)[0].strip()
+                    t = first if len(first) >= 16 else sents[0].rstrip("。；;")
+                else:
+                    # Keep the full first sentence — clarity over fitting
+                    t = sents[0].rstrip("。；;")
+            elif "；" in t or ";" in t:
+                t = re.split(r"[；;]", t, 1)[0].strip()
+        if not t:
+            continue
+        out.append("• " + t)
+    return out
+
+
+def pick_metrics(points: list[dict]) -> list[tuple[str, str, str]]:
+    """Build up to 6 metric cards with complete labels/values (no ellipsis)."""
+    rows: list[tuple[str, str, str]] = []
+    for tp in points:
+        if len(rows) >= 6:
+            break
+        ms = [clean(m) for m in (tp.get("metrics") or []) if clean(m)]
+        title = short_title(tp.get("title", "指标"), 12)
+        if not ms:
+            detail = clean((tp.get("details") or [""])[0])
+            if not detail:
+                continue
+            rows.append((title, "核心口径", take_complete(detail, 28)))
+            continue
+        for i, m in enumerate(ms):
+            if len(rows) >= 6:
+                break
+            baseline, value = "演讲口径", m
+            for sep in ["→", "->", "⇒"]:
+                if sep in m:
+                    left, right = m.split(sep, 1)
+                    left, right = left.strip(), right.strip()
+                    if left and right:
+                        baseline, value = left, right
+                        break
+            # Label: prefer short head before colon inside metric, else talk point title
+            if "：" in m and len(m.split("：", 1)[0]) <= 12:
+                label = m.split("：", 1)[0]
+                if baseline == "演讲口径":
+                    value = m.split("：", 1)[1].strip() or m
+            else:
+                label = title if i == 0 else f"{title}·{i+1}"
+            rows.append((take_complete(label, 14), take_complete(baseline, 20), take_complete(value, 28)))
+    while len(rows) < 6:
+        rows.append(("—", "—", "—"))
+    return rows[:6]
+
+
 def add_insight_slide(prs, eyebrow, insight, judgment, cards, metrics, action, source, metrics_title="关键指标对比与提升"):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     rect(slide, 0, 0, W, H, fill=BG)
-    rect(slide, 0, 0, W, Inches(1.15), fill=WHITE, line=None)
-    textbox(slide, Inches(0.4), Inches(0.16), Inches(12.5), Inches(0.3), eyebrow, size=13, color=MUTED)
-    textbox(slide, Inches(0.4), Inches(0.46), Inches(12.5), Inches(0.55), insight, size=20, bold=True, color=DARK)
 
+    # Header: allow 2-line insight
+    rect(slide, 0, 0, W, Inches(1.2), fill=WHITE, line=None)
+    textbox(slide, Inches(0.35), Inches(0.1), Inches(12.6), Inches(0.26), eyebrow, size=12, color=MUTED)
+    textbox(slide, Inches(0.35), Inches(0.38), Inches(12.6), Inches(0.72), insight, size=16, bold=True, color=DARK)
+
+    # Judgment: taller so full sentence wraps visibly
     jy = Inches(1.32)
-    rect(slide, Inches(0.35), jy, Inches(12.6), Inches(0.55), fill=WHITE, line=BORDER, line_w=1)
-    textbox(slide, Inches(0.5), jy + Inches(0.1), Inches(12.3), Inches(0.4), judgment, size=13, bold=True, color=DARK)
+    rect(slide, Inches(0.3), jy, Inches(12.7), Inches(0.82), fill=WHITE, line=BORDER, line_w=1)
+    textbox(slide, Inches(0.45), jy + Inches(0.06), Inches(12.4), Inches(0.7), judgment, size=12, bold=True, color=DARK)
 
-    cy = Inches(2.05)
-    ch = Inches(2.85)
-    cw = Inches(4.05)
-    gap = Inches(0.22)
+    # Three viewpoint cards
+    cy = Inches(2.28)
+    ch = Inches(2.48)
+    cw = Inches(4.1)
+    gap = Inches(0.18)
     for i, (title, lead, bullets) in enumerate(cards[:3]):
-        x = Inches(0.35) + i * (cw + gap)
+        x = Inches(0.3) + i * (cw + gap)
         rect(slide, x, cy, cw, ch, fill=WHITE, line=BORDER, line_w=1)
-        textbox(slide, x + Inches(0.15), cy + Inches(0.15), cw - Inches(0.3), Inches(0.35), title, size=15, bold=True, color=ACCENT)
+        textbox(slide, x + Inches(0.14), cy + Inches(0.1), cw - Inches(0.28), Inches(0.32), title, size=14, bold=True, color=ACCENT)
         multilines(
             slide,
-            x + Inches(0.18),
-            cy + Inches(0.55),
-            cw - Inches(0.36),
-            ch - Inches(0.7),
+            x + Inches(0.14),
+            cy + Inches(0.44),
+            cw - Inches(0.28),
+            ch - Inches(0.55),
             [lead] + bullets,
-            size=12,
+            size=11,
             color=MID,
-            spacing=4,
+            spacing=2,
             bold_first=True,
         )
 
-    my = Inches(5.05)
-    textbox(slide, Inches(0.35), my, Inches(8), Inches(0.28), metrics_title, size=14, bold=True, color=DARK)
-    mw = Inches(2.02)
-    mh = Inches(0.95)
-    mg = Inches(0.12)
+    # Metrics
+    my = Inches(4.98)
+    textbox(slide, Inches(0.3), my, Inches(8), Inches(0.26), metrics_title, size=13, bold=True, color=DARK)
+    mw = Inches(2.05)
+    mh = Inches(1.05)
+    mg = Inches(0.1)
     for i, (label, baseline, value) in enumerate(metrics[:6]):
-        x = Inches(0.35) + i * (mw + mg)
-        y = my + Inches(0.32)
+        x = Inches(0.3) + i * (mw + mg)
+        y = my + Inches(0.28)
         rect(slide, x, y, mw, mh, fill=WHITE, line=BORDER, line_w=1)
-        textbox(slide, x + Inches(0.12), y + Inches(0.06), mw - Inches(0.2), Inches(0.22), label, size=10, color=MUTED)
-        textbox(slide, x + Inches(0.12), y + Inches(0.28), mw - Inches(0.2), Inches(0.26), baseline, size=10, color=MID)
-        textbox(slide, x + Inches(0.12), y + Inches(0.55), mw - Inches(0.2), Inches(0.32), value, size=14, bold=True, color=ACCENT)
+        textbox(slide, x + Inches(0.1), y + Inches(0.06), mw - Inches(0.18), Inches(0.22), label, size=10, color=MUTED)
+        textbox(slide, x + Inches(0.1), y + Inches(0.28), mw - Inches(0.18), Inches(0.28), baseline, size=10, color=MID)
+        textbox(slide, x + Inches(0.1), y + Inches(0.58), mw - Inches(0.18), Inches(0.4), value, size=12, bold=True, color=ACCENT)
 
-    fy = Inches(6.55)
+    # Footer action: 2 lines
+    fy = Inches(6.42)
     rect(slide, 0, fy, W, H - fy, fill=WHITE, line=None)
-    textbox(slide, Inches(0.4), fy + Inches(0.1), Inches(12.5), Inches(0.28), action, size=12, bold=True, color=DARK)
-    textbox(slide, Inches(0.4), fy + Inches(0.42), Inches(12.5), Inches(0.28), source, size=10, color=MUTED)
+    textbox(slide, Inches(0.35), fy + Inches(0.08), Inches(12.6), Inches(0.55), action, size=11, bold=True, color=DARK)
+    textbox(slide, Inches(0.35), fy + Inches(0.62), Inches(12.6), Inches(0.28), source, size=9, color=MUTED)
     return slide
 
 
@@ -155,11 +309,11 @@ def add_evidence_slide(prs, eyebrow, items):
     for i, (img_path, highlight, caption) in enumerate(items[:3]):
         x = margin + i * (cw + gap)
         rect(slide, x, cy, cw, ch, fill=WHITE, line=BORDER, line_w=1)
-        textbox(slide, x + Inches(0.12), cy + Inches(0.1), cw - Inches(0.24), Inches(0.32), highlight, size=12, bold=True, color=ACCENT)
+        textbox(slide, x + Inches(0.12), cy + Inches(0.1), cw - Inches(0.24), Inches(0.42), highlight, size=12, bold=True, color=ACCENT)
         ix = x + Inches(0.12)
-        iy = cy + Inches(0.48)
+        iy = cy + Inches(0.55)
         iw = cw - Inches(0.24)
-        ih = Inches(4.2)
+        ih = Inches(4.1)
         path = Path(img_path)
         if path.exists():
             with Image.open(path) as im:
@@ -185,29 +339,6 @@ def add_evidence_slide(prs, eyebrow, items):
         color=MUTED,
     )
     return slide
-
-
-def clip(s: str, n: int) -> str:
-    s = re.sub(r"\s+", " ", (s or "").strip())
-    return s if len(s) <= n else s[: n - 1] + "…"
-
-
-def bulletize(details: list[str], limit=4) -> list[str]:
-    out = []
-    for d in details[:limit]:
-        t = d.strip()
-        if not t.startswith("•") and not t.startswith("-"):
-            t = "• " + t
-        out.append(clip(t, 70))
-    return out
-
-
-def pick_metric_value(metrics: list[str]) -> str:
-    if not metrics:
-        return "—"
-    # Prefer short numeric-looking metric
-    scored = sorted(metrics, key=lambda m: (0 if re.search(r"[\d%×xX倍↑↓+\-]", m) else 1, len(m)))
-    return clip(scored[0], 18)
 
 
 def crop_evidence(src: Path, dst: Path) -> Path:
@@ -245,6 +376,10 @@ def load_talks(notes_dir: Path) -> list[dict]:
     return sorted(uniq, key=lambda x: x["id"])
 
 
+def insight_field(tp: dict) -> str:
+    return clean(tp.get("hcs_insight") or tp.get("competitor_insight") or "")
+
+
 def build_from_talk(talk: dict, *, forum_root: Path, source_url: str, audience_note: str = "") -> Path:
     out_dir = forum_root / "docs"
     shots = forum_root / "screenshots"
@@ -258,45 +393,64 @@ def build_from_talk(talk: dict, *, forum_root: Path, source_url: str, audience_n
     org = talk.get("org", "")
     folder = talk["folder"]
     points = talk.get("tech_points") or []
-    overview = talk.get("overview") or ""
-    summaries = talk.get("summary_insights") or []
+    overview = clean(talk.get("overview") or "")
+    summaries = [clean(s) for s in (talk.get("summary_insights") or []) if clean(s)]
 
     eyebrow = f"{tid} · {speaker}" + (f" · {org}" if org else "")
-    eyebrow = clip(eyebrow, 70)
-    insight = "洞察：" + clip(summaries[0] if summaries else overview, 48)
-    judgment = "一句话判断：" + clip(overview, 110)
+    eyebrow = take_complete(eyebrow, 90)
+
+    # Insight: use the primary summary in full (complete viewpoint)
+    core = summaries[0] if summaries else overview
+    insight = "洞察：" + (core if len(core) <= 100 else take_complete(core, 100))
+
+    # Judgment: 1–2 complete sentences from overview — never mid-cut
+    # Only treat 。！？ as hard sentence ends (； often mid-thought)
+    ov_sents = split_sentences(overview, seps="。！？")
+    if ov_sents:
+        judgment_body = ov_sents[0].rstrip("；;")
+        if len(judgment_body) < 90 and len(ov_sents) > 1:
+            nxt = ov_sents[1].rstrip("；;")
+            if len(judgment_body) + len(nxt) <= 180:
+                judgment_body = judgment_body + nxt
+    else:
+        judgment_body = take_complete(overview, 170).rstrip("；;")
+    judgment = "一句话判断：" + judgment_body
 
     cards = []
     for i, tp in enumerate(points[:3], 1):
-        details = tp.get("details") or []
-        lead = clip(details[0] if details else tp.get("title", ""), 42)
-        bullets = bulletize(details[1:] if len(details) > 1 else details[:1], limit=3)
-        cards.append((f"{i:02d}  {clip(tp['title'], 16)}", lead, bullets))
+        details = [clean(d) for d in (tp.get("details") or []) if clean(d)]
+        insight_txt = insight_field(tp)
+        # Lead = first complete sentence of insight (or first detail) — full clause
+        if insight_txt:
+            lead_sents = split_sentences(insight_txt)
+            lead = lead_sents[0] if lead_sents else insight_txt
+            if len(lead) > 70:
+                lead = take_complete(lead, 70)
+        else:
+            lead = take_complete(details[0] if details else tp.get("title", ""), 70)
+        lead = lead.rstrip("；;、，, ")
+        if lead and lead[-1] not in "。！？":
+            # Keep as a complete declarative viewpoint without dangling separators
+            pass
+        bullet_src = details
+        bullets = bulletize(bullet_src, limit=3, max_chars=58)
+        cards.append((f"{i:02d}  {short_title(tp.get('title', ''), 18)}", lead, bullets))
     while len(cards) < 3:
-        cards.append((f"{len(cards)+1:02d}  补充", "详见技术纪要", ["• 见 Word 展开"]))
+        cards.append((f"{len(cards)+1:02d}  补充要点", "详见技术纪要 Word", ["• 展开阅读 docs 对应议题"]))
 
-    metrics = []
-    for tp in points:
-        if len(metrics) >= 6:
-            break
-        ms = tp.get("metrics") or []
-        label = clip(tp.get("title", "指标"), 12)
-        baseline = clip(ms[1], 16) if len(ms) > 1 else clip((tp.get("details") or [""])[0], 16)
-        value = pick_metric_value(ms) if ms else clip((tp.get("details") or ["—"])[0], 14)
-        metrics.append((label, baseline, value))
-    while len(metrics) < 6:
-        metrics.append(("—", "—", "—"))
+    metrics = pick_metrics(points)
 
-    action_bits = summaries[:2] if summaries else [overview]
-    insight_key = "hcs_insight" if any(tp.get("hcs_insight") for tp in points) else "competitor_insight"
-    if not action_bits and points:
-        action_bits = [points[0].get(insight_key) or ""]
-    action = "可落地动作：" + clip("；".join(x for x in action_bits if x), 120)
+    # Action: join complete summaries (full sentences)
+    action_bits = summaries[:3] if summaries else [insight_field(tp) for tp in points[:2] if insight_field(tp)]
+    action_body = "；".join(b.rstrip("。；;") for b in action_bits if b)
+    if action_body and not action_body.endswith(("。", "；")):
+        action_body += "。"
+    action = "可落地动作：" + action_body
+
     source = f"来源：{source_url} · Talk {tid} {speaker}"
     if audience_note:
         source = f"{source}  ·  视角：{audience_note}"
 
-    # evidence: 3 cropped screenshots
     ev_items = []
     for tp in points:
         if len(ev_items) >= 3:
@@ -309,20 +463,22 @@ def build_from_talk(talk: dict, *, forum_root: Path, source_url: str, audience_n
             continue
         dst = evidence_dir / f"{Path(img).stem}-crop.png"
         crop_evidence(src, dst)
-        highlight = pick_metric_value(tp.get("metrics") or []) if tp.get("metrics") else clip(tp["title"], 20)
-        if highlight == "—":
-            highlight = clip(tp["title"], 20)
-        ev_items.append((dst, highlight, clip(tp["title"], 28)))
-    while len(ev_items) < 3 and points:
-        # fallback any png in folder
+        ms = [clean(m) for m in (tp.get("metrics") or []) if clean(m)]
+        if ms:
+            highlight = take_complete(" · ".join(ms[:2]), 36)
+        else:
+            highlight = short_title(tp.get("title", ""), 24)
+        ev_items.append((dst, highlight, take_complete(tp.get("title", ""), 36)))
+    if len(ev_items) < 3:
         folder_pngs = sorted((shots / folder).glob("*.png"))
         for src in folder_pngs:
             if len(ev_items) >= 3:
                 break
+            if any(src.stem in str(p[0]) for p in ev_items):
+                continue
             dst = evidence_dir / f"{src.stem}-crop.png"
             crop_evidence(src, dst)
-            ev_items.append((dst, "回放截图", src.name))
-        break
+            ev_items.append((dst, "官方回放截图", take_complete(src.stem, 28)))
 
     prs = Presentation()
     prs.slide_width = W
