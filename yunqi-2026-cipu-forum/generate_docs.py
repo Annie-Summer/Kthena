@@ -64,6 +64,15 @@ def add_image(doc, path: Path, caption: str | None = None, width=5.8):
         set_run_font(r, size=9, color=(90, 90, 90))
 
 
+def add_evidence_images(doc, shot_dir: str, images: list[dict]):
+    """Place evidence screenshots immediately under the related content."""
+    for img in images:
+        path = SHOTS / shot_dir / img["file"]
+        add_image(doc, path, caption=img.get("caption"))
+        if img.get("note"):
+            add_para(doc, f"佐证说明：{img['note']}", size=10, space_after=10)
+
+
 def build_doc(meta: dict) -> Path:
     doc = Document()
     section = doc.sections[0]
@@ -85,22 +94,19 @@ def build_doc(meta: dict) -> Path:
     add_heading(doc, "二、核心要点", 2)
     add_bullets(doc, meta["key_points"])
 
-    if meta.get("sections"):
-        add_heading(doc, "三、分节梳理", 2)
-        for sec in meta["sections"]:
-            add_para(doc, sec["heading"], bold=True, size=12)
-            add_bullets(doc, sec["bullets"])
-
-    add_heading(doc, "四、PPT截图佐证", 2)
-    add_para(doc, "以下截图取自官方回放视频对应时间点，用于佐证上述要点。")
-    for img in meta["images"]:
-        path = SHOTS / meta["shot_dir"] / img["file"]
-        add_image(doc, path, caption=img.get("caption"))
-        if img.get("note"):
-            add_para(doc, img["note"])
+    add_heading(doc, "三、分节梳理与PPT佐证", 2)
+    add_para(
+        doc,
+        "以下按议题结构展开；每节文字要点之后立即附上对应 PPT 截图作为佐证。",
+        size=10,
+    )
+    for block in meta.get("blocks", []):
+        add_para(doc, block["heading"], bold=True, size=12, space_after=4)
+        add_bullets(doc, block.get("bullets", []))
+        add_evidence_images(doc, meta["shot_dir"], block.get("images", []))
 
     if meta.get("takeaways"):
-        add_heading(doc, "五、结论与启示", 2)
+        add_heading(doc, "四、结论与启示", 2)
         add_bullets(doc, meta["takeaways"])
 
     DOCS.mkdir(parents=True, exist_ok=True)

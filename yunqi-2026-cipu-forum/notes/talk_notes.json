@@ -19,31 +19,6 @@
       "训练网络：RC 生态兼容、SACK（5% 丢包约 90% goodput）、多路径喷洒（有效带宽约 +60%）、Over VPC。",
       "大模型权重等高价值资产的多租隔离被定义为严肃云厂商业务红线。"
     ],
-    "sections": [
-      {
-        "heading": "1. CIPU 业务定位与架构对比",
-        "bullets": [
-          "云计算六大价值：弹性、多租、安全、稳定、性能、成本。",
-          "从 Host OS Dom0 卸载到 CIPU：Management / VPC / EBS / CPFS / eRDMA / Local disks。"
-        ]
-      },
-      {
-        "heading": "2. 五代演进",
-        "bullets": [
-          "带宽与卸载能力围绕云核心价值持续迭代。",
-          "第五代重点：CPFS、EBS/VPC 加解密、TPM、2×200GbE。"
-        ]
-      },
-      {
-        "heading": "3. 面向 Agent / GPU / 推理 / 训练",
-        "bullets": [
-          "Agent：Sandbox 并池 + MicroVM + DPU 模式。",
-          "GPU 裸金属：固件到内存重置的八项硬要求。",
-          "推理：VSC / NVMe KV / OSS GDS 多租高速通道。",
-          "训练：RC + SACK + 喷洒 + Over VPC。"
-        ]
-      }
-    ],
     "images": [
       {
         "file": "t00-02-07.png",
@@ -96,6 +71,99 @@
       "对 Agent/GPU 裸金属，安全底线抬高到固件、BMC、内存重置与 DPU 域隔离。",
       "推理侧把 KVCache/CPFS/OSS 做成 CIPU 上的多租高速通道；训练侧强化 RDMA 可靠性与 ECMP 冲突治理。",
       "第五代 CIPU 是当前对标 AI Infra 的硬件基线。"
+    ],
+    "blocks": [
+      {
+        "heading": "嘉宾与开场",
+        "bullets": [
+          "本场开场确认讲者身份与议题。"
+        ],
+        "images": [
+          {
+            "file": "t00-02-07.png",
+            "caption": "图1 嘉宾介绍：杨航 / Hang Yang",
+            "note": "确认讲者身份与开场时间。"
+          }
+        ]
+      },
+      {
+        "heading": "1. CIPU 业务定位与架构对比",
+        "bullets": [
+          "云计算六大价值：弹性、多租、安全、稳定、性能、成本。",
+          "从 Host OS Dom0 卸载到 CIPU：Management / VPC / EBS / CPFS / eRDMA / Local disks。"
+        ],
+        "images": [
+          {
+            "file": "t00-07-30.png",
+            "caption": "图2 云计算核心价值六要素",
+            "note": "强调无多租安全隔离则其他价值归零。"
+          },
+          {
+            "file": "t00-08-20.png",
+            "caption": "图3 传统 KVM vs CIPU 虚拟化架构",
+            "note": "Dom0 下沉 CIPU，硬件直通 IO + 数据访问加速。"
+          }
+        ]
+      },
+      {
+        "heading": "2. 五代演进",
+        "bullets": [
+          "带宽与卸载能力围绕云核心价值持续迭代。",
+          "第五代重点：CPFS、EBS/VPC 加解密、TPM、2×200GbE。"
+        ],
+        "images": [
+          {
+            "file": "t00-10-50.png",
+            "caption": "图4 CIPU 五代演进时间线",
+            "note": "第五代 2×200GbE + CPFS/加密/TPM。"
+          }
+        ]
+      },
+      {
+        "heading": "AI 安全与性能挑战",
+        "bullets": [
+          "AI 语境强调多租安全是底线，并引用 Agent 沙箱逃逸与 Neocloud 安全不足作为背景。",
+          "能耗视角：DRAM 访问能量远高于算力操作，瓶颈转向内存墙与跨服务器互联/存储。"
+        ],
+        "images": [
+          {
+            "file": "t00-15-00.png",
+            "caption": "图5 AI 基础设施安全与性能挑战",
+            "note": "数据访问远贵于计算，瓶颈在内存墙与互联。"
+          }
+        ]
+      },
+      {
+        "heading": "3. 面向 Agent / GPU / 推理 / 训练",
+        "bullets": [
+          "Agent：Sandbox 并池 + MicroVM + DPU 模式。",
+          "GPU 裸金属：固件到内存重置的八项硬要求。",
+          "推理：VSC / NVMe KV / OSS GDS 多租高速通道。",
+          "训练：RC + SACK + 喷洒 + Over VPC。"
+        ],
+        "images": [
+          {
+            "file": "t00-18-20.png",
+            "caption": "图6 Agent Sandbox 一方/三方并池",
+            "note": "CIPU DPU 模式支撑弹性并池与 MicroVM 隔离。"
+          },
+          {
+            "file": "t00-21-40.png",
+            "caption": "图7 GPU 裸金属多租安全八项清单",
+            "note": "大模型权重安全是云厂商业务红线。"
+          },
+          {
+            "file": "t00-25-00.png",
+            "caption": "图8 推理高性能存储三路径",
+            "note": "VSC / NVMe KV / OSS GDS over eRDMA。"
+          },
+          {
+            "file": "t00-28-20.png",
+            "caption": "图9 训练高性能网络优化",
+            "note": "SACK、多路径喷洒、Over VPC 等关键能力。"
+          }
+        ]
+      }
     ]
   },
   {
@@ -117,29 +185,6 @@
       "玄铁 C950：RVA23.1、8-issue、>3GHz、SPECint2006 70+。",
       "Titan（RVV1.0）4K 超宽向量 + Pulsar 矩阵扩展；单核 FP4 >8TFLOPS，4096-bit Tensor Cache。",
       "云芯协同：云场景定义 → 玄铁协同设计 → CIPU/服务器创新 → 标杆验证 → 生态适配。"
-    ],
-    "sections": [
-      {
-        "heading": "1. 为何是 CPU 架构拐点",
-        "bullets": [
-          "Agentic 负载量化特征导致 CPU 占比回升。",
-          "配比与成本结构发生结构性变化。"
-        ]
-      },
-      {
-        "heading": "2. 为何 RISC-V 有机会",
-        "bullets": [
-          "开放 ISA 与模块化扩展吸收不确定负载。",
-          "软硬全栈闭环与生态复利。"
-        ]
-      },
-      {
-        "heading": "3. 玄铁 C950 与云芯协同",
-        "bullets": [
-          "宽发射乱序 + 向量/矩阵进入主线。",
-          "与阿里云/CIPU 形成场景牵引与产品闭环。"
-        ]
-      }
     ],
     "images": [
       {
@@ -193,6 +238,88 @@
       "RISC-V 主张从「替代 x86」转向「更快共设 AI 原生能力」。",
       "C950 以宽发射 + Titan/Pulsar 把检索/向量/张量拉回通用服务器流水线。",
       "落地强调全栈闭环与云芯协同，而非单点芯片指标。"
+    ],
+    "blocks": [
+      {
+        "heading": "嘉宾与开场",
+        "bullets": [
+          "本场开场确认讲者身份与议题。"
+        ],
+        "images": [
+          {
+            "file": "t00-34-20.png",
+            "caption": "图1 嘉宾介绍：傅晶晶 / Jingjing Fu",
+            "note": "达摩院 RISC-V 资深技术专家。"
+          }
+        ]
+      },
+      {
+        "heading": "1. 为何是 CPU 架构拐点",
+        "bullets": [
+          "Agentic 负载量化特征导致 CPU 占比回升。",
+          "配比与成本结构发生结构性变化。"
+        ],
+        "images": [
+          {
+            "file": "t00-36-40.png",
+            "caption": "图2 演讲目录",
+            "note": "机遇、创新、C950 实践三部分。"
+          },
+          {
+            "file": "t00-40-00.png",
+            "caption": "图3 Coding vs Deep Research Agent 负载",
+            "note": "Token/工具/I/O 特征对比。"
+          },
+          {
+            "file": "t00-42-30.png",
+            "caption": "图4 CPU:GPU 配比重构",
+            "note": "1:8 → 1:1～1:2；每 GW CPU 核数约 4×。"
+          }
+        ]
+      },
+      {
+        "heading": "2. 为何 RISC-V 有机会",
+        "bullets": [
+          "开放 ISA 与模块化扩展吸收不确定负载。",
+          "软硬全栈闭环与生态复利。"
+        ],
+        "images": [
+          {
+            "file": "t00-45-50.png",
+            "caption": "图5 为何 RISC-V 适合 Agentic AI",
+            "note": "开放 ISA、模块化、软硬协同、生态共建。"
+          }
+        ]
+      },
+      {
+        "heading": "3. 玄铁 C950 与云芯协同",
+        "bullets": [
+          "宽发射乱序 + 向量/矩阵进入主线。",
+          "与阿里云/CIPU 形成场景牵引与产品闭环。"
+        ],
+        "images": [
+          {
+            "file": "t00-50-00.png",
+            "caption": "图6 玄铁 C950 规格",
+            "note": "RVA23.1、8 发射、>3GHz。"
+          },
+          {
+            "file": "t00-53-20.png",
+            "caption": "图7 Titan + Pulsar",
+            "note": "单核 FP4 >8TFLOPS；Tensor Cache。"
+          },
+          {
+            "file": "t00-55-50.png",
+            "caption": "图8 Coding Agent 端到端路径",
+            "note": "CPU/Vector/Matrix/安全/RDMA 分工。"
+          },
+          {
+            "file": "t01-00-00.png",
+            "caption": "图9 云芯协同五步",
+            "note": "玄铁底座 + 阿里云场景牵引 + CIPU 协同。"
+          }
+        ]
+      }
     ]
   },
   {
@@ -214,29 +341,6 @@
       "Infini-AIOps：Skills（故障定位/性能分析）+ 知识库 + GPU 透传沙箱 + 工具/节点自愈。",
       "实测：5.5h → 0.47h（约 -91%），人效约 12×。",
       "未来：更高仿真度、数据合成、多模态、Harness 形式化与在线 RL。"
-    ],
-    "sections": [
-      {
-        "heading": "1. 人工运维挑战",
-        "bullets": [
-          "量化痛点与组织门槛。",
-          "异构智算设施与人工链路不匹配。"
-        ]
-      },
-      {
-        "heading": "2. 评测基础设施",
-        "bullets": [
-          "aiops-data 数据集。",
-          "aiops-chaos 故障模拟器。"
-        ]
-      },
-      {
-        "heading": "3. Infini-AIOps 与收益",
-        "bullets": [
-          "Skills–Sandbox–Tools–Node 四层。",
-          "处理时长与人效量化提升。"
-        ]
-      }
     ],
     "images": [
       {
@@ -290,6 +394,88 @@
       "aiops-data + aiops-chaos 把工单/告警与 GPU/RDMA 故障注入做成评测底座。",
       "生产可用关键是跑得稳、执行安全、可审计。",
       "实测约 91% 时长下降说明规模化工单下智能运维有明确业务价值。"
+    ],
+    "blocks": [
+      {
+        "heading": "嘉宾与开场",
+        "bullets": [
+          "本场开场确认讲者身份与议题。"
+        ],
+        "images": [
+          {
+            "file": "t01-02-40.png",
+            "caption": "图1 嘉宾介绍：吴保东 / Baodong Wu",
+            "note": "无问芯穹技术副总裁。"
+          }
+        ]
+      },
+      {
+        "heading": "1. 人工运维挑战",
+        "bullets": [
+          "量化痛点与组织门槛。",
+          "异构智算设施与人工链路不匹配。"
+        ],
+        "images": [
+          {
+            "file": "t01-05-00.png",
+            "caption": "图2 人工运维挑战总览",
+            "note": "1519 问题、1.2h；诊断准确率 <60%。"
+          },
+          {
+            "file": "t01-08-20.png",
+            "caption": "图3 运维智能体评测挑战",
+            "note": "缺统一真实可复现评测标准。"
+          }
+        ]
+      },
+      {
+        "heading": "2. 评测基础设施",
+        "bullets": [
+          "aiops-data 数据集。",
+          "aiops-chaos 故障模拟器。"
+        ],
+        "images": [
+          {
+            "file": "t01-11-40.png",
+            "caption": "图4 aiops-data 流水线",
+            "note": "工单 + 告警 → 故障构造数据集。"
+          },
+          {
+            "file": "t01-15-00.png",
+            "caption": "图5 aiops-chaos 架构",
+            "note": "aemu + executor；nvml/RDMA 故障注入。"
+          },
+          {
+            "file": "t01-18-20.png",
+            "caption": "图6 失败模式与优秀 Agent 关键",
+            "note": "瓶颈转向稳定推理与安全执行。"
+          }
+        ]
+      },
+      {
+        "heading": "3. Infini-AIOps 与收益",
+        "bullets": [
+          "Skills–Sandbox–Tools–Node 四层。",
+          "处理时长与人效量化提升。"
+        ],
+        "images": [
+          {
+            "file": "t01-21-40.png",
+            "caption": "图7 Infini-AIOps 技术架构",
+            "note": "Skills/Memory + 可信沙箱 GPU 透传。"
+          },
+          {
+            "file": "t01-25-00.png",
+            "caption": "图8 实测效果曲线",
+            "note": "5.5h→0.47h（-91%），人效 ~12×。"
+          },
+          {
+            "file": "t01-28-20.png",
+            "caption": "图9 未来规划",
+            "note": "Harness 形式化优化，而非盲目 LLM 调参。"
+          }
+        ]
+      }
     ]
   },
   {
@@ -311,22 +497,6 @@
       "Tair Memory Pool：传输效率 93%+；offload 吞吐 +50%+、TTFT -30%。",
       "G3/G3.5：vCNS-FS / KV Engine + EBoF（DPU、TLC/QLC/FDP）；HiSim+Optimizer 做 SSD 选型。",
       "全景 L1–L4：API → 推理引擎 → KV 管理 → 硬件（含 CIPU），强调纵向协同。"
-    ],
-    "sections": [
-      {
-        "heading": "1. 池化·管理·仿真（王正恒）",
-        "bullets": [
-          "KV 资源化与跨请求/跨轮次/跨实例复用。",
-          "KVCM + MemPool + HiSim 决策闭环。"
-        ]
-      },
-      {
-        "heading": "2. 软硬结合分层（徐国强）",
-        "bullets": [
-          "G1–G4 指标栈。",
-          "UMX / Memory Pool / EBoF / SSD 选型。"
-        ]
-      }
     ],
     "images": [
       {
@@ -390,6 +560,89 @@
       "控制面策略 + 数据面 RDMA 共享构成系统闭环。",
       "HiSim 把多级缓存配置变成可量化 SLO/成本决策。",
       "UMX/AMES 与池化存储用于突破 HBM 墙，服务超长上下文与 Agent 多轮。"
+    ],
+    "blocks": [
+      {
+        "heading": "嘉宾与开场",
+        "bullets": [
+          "本场由王正恒、徐国强接力，分别讲池化管理仿真与软硬结合分层。"
+        ],
+        "images": [
+          {
+            "file": "t01-30-40.png",
+            "caption": "图1 嘉宾介绍：王正恒",
+            "note": "开场确认讲者。"
+          }
+        ]
+      },
+      {
+        "heading": "1. 池化·管理·仿真（王正恒）",
+        "bullets": [
+          "KV 资源化与跨请求/跨轮次/跨实例复用。",
+          "KVCM + MemPool + HiSim 决策闭环。"
+        ],
+        "images": [
+          {
+            "file": "t01-33-20.png",
+            "caption": "图2 从显存开销到可复用推理资产",
+            "note": "跨请求 / 多轮持久 / 跨实例池化。"
+          },
+          {
+            "file": "t01-35-50.png",
+            "caption": "图3 全局池化系统协同架构",
+            "note": "Tair KVCM + KV Aware Routing + MemPool。"
+          },
+          {
+            "file": "t01-40-00.png",
+            "caption": "图4 HiSim 仿真优化",
+            "note": "仿真驱动配置与 Pareto/SLO。"
+          },
+          {
+            "file": "t01-43-20.png",
+            "caption": "图5 存储介质五需求",
+            "note": "解耦、弹性、延迟/带宽、DWPD、TCO。"
+          }
+        ]
+      },
+      {
+        "heading": "2. 软硬结合分层（徐国强）",
+        "bullets": [
+          "G1–G4 指标栈。",
+          "UMX / Memory Pool / EBoF / SSD 选型。"
+        ],
+        "images": [
+          {
+            "file": "t01-50-00.png",
+            "caption": "图6 G1–G4 分层存储定义",
+            "note": "HBM/AMES/CXL/SSD/EBoF 指标栈。"
+          },
+          {
+            "file": "t01-53-20.png",
+            "caption": "图7 磐久 UMX / Alink Scale Up",
+            "note": "UALink+CXL；超长 KVCache 目标场景。"
+          },
+          {
+            "file": "t01-59-10.png",
+            "caption": "图8 Tair Memory Pool",
+            "note": "吞吐 +50%+；TTFT -30%。"
+          },
+          {
+            "file": "t02-09-10.png",
+            "caption": "图9 G3/G3.5 EBoF 与语义缓存",
+            "note": "文件语义与 KV 语义双路径。"
+          },
+          {
+            "file": "t02-15-50.png",
+            "caption": "图10 G3 SSD 选型 HiSim+Optimizer",
+            "note": "带宽/容量/寿命三约束。"
+          },
+          {
+            "file": "t02-19-10.png",
+            "caption": "图11 KVCache 全景 L1–L4",
+            "note": "模型-软件-硬件纵向协同。"
+          }
+        ]
+      }
     ]
   },
   {
@@ -413,29 +666,6 @@
       "磐久：高性能 400G/QAT/DSA/CXL+PMEM；大容量单机 34PB、按需上电功耗优化约 70%；兼容倚天 ARM/x86/RISC-V。",
       "磐久 EBOF：多路 DPU/CIPU + AliSCM + TLC/QLC；Hardware As Service。",
       "推理方案：本地 SCM/PCM/TLC + RDMA 零拷贝 Offload/Reload + EBOF 热度调度。"
-    ],
-    "sections": [
-      {
-        "heading": "1. 需求趋势与介质分层",
-        "bullets": [
-          "三阶段差异化需求。",
-          "按数据温度智能升降温。"
-        ]
-      },
-      {
-        "heading": "2. 自研部件与服务器",
-        "bullets": [
-          "AliSCM / PCM / AliFlash。",
-          "磐久高性能/大容量与 EBOF。"
-        ]
-      },
-      {
-        "heading": "3. GPU 中心软硬协同",
-        "bullets": [
-          "六级分层近 GPU 热、远端池化。",
-          "用户态零拷贝与热度感知调度。"
-        ]
-      }
     ],
     "images": [
       {
@@ -503,6 +733,103 @@
       "存储战略转向按 AI 阶段与数据温度定制的异构介质栈。",
       "关键路径是 AliSCM + PCM SSD + TLC/QLC + 磐久/EBOF，软件侧零拷贝与热度调度闭环。",
       "对 Agentic，强调记忆持久化与长期会话的前置存储能力。"
+    ],
+    "blocks": [
+      {
+        "heading": "嘉宾与开场",
+        "bullets": [
+          "本场开场确认讲者身份与演讲标题。"
+        ],
+        "images": [
+          {
+            "file": "t02-20-50.png",
+            "caption": "图1 嘉宾介绍：常存银 / Cunyin Chang",
+            "note": "开场确认讲者。"
+          },
+          {
+            "file": "t02-21-40.png",
+            "caption": "图2 演讲标题页",
+            "note": "让 Token 快人一步：存储软硬协同之路。"
+          }
+        ]
+      },
+      {
+        "heading": "1. 需求趋势与介质分层",
+        "bullets": [
+          "三阶段差异化需求。",
+          "按数据温度智能升降温。"
+        ],
+        "images": [
+          {
+            "file": "t02-22-30.png",
+            "caption": "图3 目录五段",
+            "note": "需求→介质→部件→服务器→方案。"
+          },
+          {
+            "file": "t02-23-20.png",
+            "caption": "图4 三阶段存储需求",
+            "note": "含 20GB/s、336GB、P99<10ms 等关键数字。"
+          },
+          {
+            "file": "t02-26-40.png",
+            "caption": "图5 介质分层金字塔",
+            "note": "DRAM→Tape 按温度定位。"
+          }
+        ]
+      },
+      {
+        "heading": "2. 自研部件与服务器",
+        "bullets": [
+          "AliSCM / PCM / AliFlash。",
+          "磐久高性能/大容量与 EBOF。"
+        ],
+        "images": [
+          {
+            "file": "t02-28-20.png",
+            "caption": "图6 AliSCM 产品架构",
+            "note": "CXL / ~200ns / 256GB–1TB。"
+          },
+          {
+            "file": "t02-31-40.png",
+            "caption": "图7 PCM SSD",
+            "note": "100 DWPD、无 GC、μs 级延迟。"
+          },
+          {
+            "file": "t02-33-20.png",
+            "caption": "图8 AliFlash V6 TLC",
+            "note": "PCIe 6.0、28/22GB/s、7M IOPS。"
+          },
+          {
+            "file": "t02-35-00.png",
+            "caption": "图9 AliFlash V5 QLC",
+            "note": "16–128TB、pSLC+QLC。"
+          },
+          {
+            "file": "t02-36-40.png",
+            "caption": "图10 磐久存储服务器软硬一体",
+            "note": "34PB、400G、多 ISA。"
+          },
+          {
+            "file": "t02-38-20.png",
+            "caption": "图11 磐久 EBOF 缓存服务器",
+            "note": "DPU/CIPU + SCM + Flash。"
+          }
+        ]
+      },
+      {
+        "heading": "3. GPU 中心软硬协同",
+        "bullets": [
+          "六级分层近 GPU 热、远端池化。",
+          "用户态零拷贝与热度感知调度。"
+        ],
+        "images": [
+          {
+            "file": "t02-41-40.png",
+            "caption": "图12 推理异构存储软硬协同方案",
+            "note": "vLLM/SGLang + EBOF/FDP。"
+          }
+        ]
+      }
     ]
   },
   {
@@ -525,29 +852,6 @@
       "震旦平台：五大能力中心 + 组件化交付（Profiler/质量/诊断/仿真器）+ 标准化交付物。",
       "质量闭环：实验室→工厂→IDC→线上；联合仿真与实测校准。",
       "诊断：60+ 测例；假阳性 0%、假阴性 <1%；调度失败率降 60–70%；微秒级 Timeline。"
-    ],
-    "sections": [
-      {
-        "heading": "1. Agentic 对多元算力的新需求",
-        "bullets": [
-          "系统效率公式。",
-          "芯片×调度×软件平台。"
-        ]
-      },
-      {
-        "heading": "2. 超节点与 AL144",
-        "bullets": [
-          "Scale-up 成为标准形态。",
-          "开放架构、液冷供电、光扩展。"
-        ]
-      },
-      {
-        "heading": "3. 震旦平台与工程闭环",
-        "bullets": [
-          "交付/仿真/压测/诊断一体化。",
-          "衔接下一段全栈优化实战。"
-        ]
-      }
     ],
     "images": [
       {
@@ -610,6 +914,90 @@
       "Agentic 把瓶颈从单芯片峰值推向系统级协同。",
       "硬件中心是磐久超节点 AL144；软件中心是震旦交付/仿真/诊断平台。",
       "仿真→压测→监控→Agent 诊断闭环是规模化异构落地的工程底座。"
+    ],
+    "blocks": [
+      {
+        "heading": "嘉宾与开场 / 问题定义",
+        "bullets": [
+          "Agentic 特征：长链路、动态分支、多工具调用；固定计算图 → 动态任务图。",
+          "系统级推理效率 = 芯片能力 × 调度效率 × 软硬件成熟度。"
+        ],
+        "images": [
+          {
+            "file": "t02-45-00.png",
+            "caption": "图1 演讲开场标题",
+            "note": "面向 Agentic 推理的异构算力软硬结合技术体系。"
+          },
+          {
+            "file": "t02-47-30.png",
+            "caption": "图2 Agentic 对多元算力的新需求",
+            "note": "系统效率 = 芯片 × 调度 × 成熟度。"
+          }
+        ]
+      },
+      {
+        "heading": "2. 超节点与 AL144",
+        "bullets": [
+          "Scale-up 成为标准形态。",
+          "开放架构、液冷供电、光扩展。"
+        ],
+        "images": [
+          {
+            "file": "t02-51-40.png",
+            "caption": "图3 服务器向超节点演进",
+            "note": "AL128/AL144；大 EP >40%。"
+          },
+          {
+            "file": "t02-53-20.png",
+            "caption": "图4 AI Infra 3.0 AL144",
+            "note": "144 卡 / 750kW / 10368。"
+          },
+          {
+            "file": "t03-00-00.png",
+            "caption": "图5 磐久超节点结构演进",
+            "note": "A/F 异构 vs 同构 sweet spot。"
+          }
+        ]
+      },
+      {
+        "heading": "3. 震旦平台与工程闭环",
+        "bullets": [
+          "交付/仿真/压测/诊断一体化。",
+          "衔接下一段全栈优化实战。"
+        ],
+        "images": [
+          {
+            "file": "t03-03-20.png",
+            "caption": "图6 震旦异构算力交付平台",
+            "note": "四大层 + 五大中心。"
+          },
+          {
+            "file": "t03-08-20.png",
+            "caption": "图7 联合仿真与实测 GPU 评估",
+            "note": "Roofline/MicroArch 闭环。"
+          },
+          {
+            "file": "t03-10-00.png",
+            "caption": "图8 全生命周期压测与质量分析",
+            "note": "实验室→线上四场景。"
+          },
+          {
+            "file": "t03-12-30.png",
+            "caption": "图9 AI 集群诊断分析平台",
+            "note": "Agent 诊断 + Profiling。"
+          },
+          {
+            "file": "t03-13-20.png",
+            "caption": "图10 全链路智能诊断平台",
+            "note": "60+ 测例、知识库。"
+          },
+          {
+            "file": "t03-16-40.png",
+            "caption": "图11 从体系到实践，再到未来",
+            "note": "过渡到 Talk 7/8。"
+          }
+        ]
+      }
     ]
   },
   {
@@ -631,29 +1019,6 @@
       "四层协同：模型计算图 → SM 任务图 → 设备内运行时 → 架构原生内核。",
       "算子供给：模型×精度×硬件代际爆炸；Agent 组织探索，专家聚焦算法与验收。",
       "Kernel Agent 案例：H100 BF16 约 4.88×；PPU MoE gate 等至约 2.13×；AMD DSA Decode 约 1.6×。"
-    ],
-    "sections": [
-      {
-        "heading": "1. Dev Loop 与三层能力",
-        "bullets": [
-          "以 Profiler/Trace 下钻为枢纽。",
-          "映射到 Agentic KV / Mega Kernel / Kernel Agent。"
-        ]
-      },
-      {
-        "heading": "2. Agentic KV",
-        "bullets": [
-          "会话生命周期感知价值排序。",
-          "绿/黄/红三态策略。"
-        ]
-      },
-      {
-        "heading": "3. Mega Kernel 与 Kernel Agent",
-        "bullets": [
-          "设备内流水压缩执行空洞。",
-          "Master–Sub 并行探索与跨平台迁移。"
-        ]
-      }
     ],
     "images": [
       {
@@ -711,6 +1076,85 @@
       "产品化抓手清晰：Agentic KV + Mega Kernel + Kernel Agent。",
       "Agentic 场景必须从 LRU 升级为会话价值排序。",
       "Kernel Agent 把专家手艺沉淀为可迁移经验库，并给出跨芯片量化加速证据。"
+    ],
+    "blocks": [
+      {
+        "heading": "嘉宾与开场 / Dev Loop",
+        "bullets": [
+          "Dev Loop：SLA/P99/TTFT → Throughput/RT → Profiler/Trace → 瓶颈归属 → 三层优化 → 回归。",
+          "三层能力：Agentic KV / Mega Kernel / Kernel Agent。"
+        ],
+        "images": [
+          {
+            "file": "t03-18-20.png",
+            "caption": "图1 双讲者标题页",
+            "note": "资彦义 / 李陈浩文。"
+          },
+          {
+            "file": "t03-20-00.png",
+            "caption": "图2 Dev Loop + 三层能力",
+            "note": "Agentic KV / Mega Kernel / Kernel Agent。"
+          }
+        ]
+      },
+      {
+        "heading": "2. Agentic KV",
+        "bullets": [
+          "会话生命周期感知价值排序。",
+          "绿/黄/红三态策略。"
+        ],
+        "images": [
+          {
+            "file": "t03-25-00.png",
+            "caption": "图3 重构 KVCache 价值排序",
+            "note": "停得久≠价值低；LRU 误删。"
+          },
+          {
+            "file": "t03-26-40.png",
+            "caption": "图4 Agentic KV 调度三态",
+            "note": "绿保留 / 黄准备 / 红腾挪。"
+          }
+        ]
+      },
+      {
+        "heading": "3. Mega Kernel 与 Kernel Agent",
+        "bullets": [
+          "设备内流水压缩执行空洞。",
+          "Master–Sub 并行探索与跨平台迁移。"
+        ],
+        "images": [
+          {
+            "file": "t03-30-00.png",
+            "caption": "图5 Mega Kernel：算子接力→设备内流水",
+            "note": "少启动/少搬运/少等待。"
+          },
+          {
+            "file": "t03-33-20.png",
+            "caption": "图6 Mega Kernel 四层协同",
+            "note": "Fusion→SM Task→Runtime→Native Kernel。"
+          },
+          {
+            "file": "t03-36-40.png",
+            "caption": "图7 多样化下的算子供给",
+            "note": "Agent 分工命题。"
+          },
+          {
+            "file": "t03-40-00.png",
+            "caption": "图8 并行探索与经验回写",
+            "note": "9.52→1.95ms / 约 4.88×。"
+          },
+          {
+            "file": "t03-43-20.png",
+            "caption": "图9 小算子融合与数据复用（PPU）",
+            "note": "相对 SGLang 加速表。"
+          },
+          {
+            "file": "t03-46-40.png",
+            "caption": "图10 多硬件迁移与平台适配",
+            "note": "AMD/PPU 收益数字。"
+          }
+        ]
+      }
     ]
   },
   {
@@ -732,29 +1176,6 @@
       "Insight Console：Agent 交互 + Roofline 搜索 + 瓶颈分析。",
       "时间线：Hisim 合入 SGLang → AFD PR → 合入 vLLM → 多厂商 P/D–A/F POC。",
       "开源主线示例：SGLang × 阿里云（如 tools/sglang-simulator 相关合入）。"
-    ],
-    "sections": [
-      {
-        "heading": "1. 趋势与阶段画像",
-        "bullets": [
-          "模型与硬件不同步。",
-          "Prefill / Attn / FFN 资源画像。"
-        ]
-      },
-      {
-        "heading": "2. 架构拆分到硬件分离",
-        "bullets": [
-          "P/D + AFD 可组合。",
-          "A/F 专用卡与 AF Handoff。"
-        ]
-      },
-      {
-        "heading": "3. Insight/Hisim 与落地",
-        "bullets": [
-          "高仿真选型前移。",
-          "开源合入与多厂商 POC。"
-        ]
-      }
     ],
     "images": [
       {
@@ -822,6 +1243,103 @@
       "未来推理架构主轴是 P/D 与 AFD 双重拆分，让 Attention 与 FFN 匹配专用硬件。",
       "震旦 Insight/Hisim 把下一代硬件选型前移到高仿真与开源引擎可验证。",
       "落地路径：仿真器合入 → AFD PR → 多厂商 P/D-A/F POC，与震旦平台、Kernel Agent 形成闭环。"
+    ],
+    "blocks": [
+      {
+        "heading": "开场与目录",
+        "bullets": [
+          "议程两块：推理软硬协同优化；震旦 Insight 仿真。"
+        ],
+        "images": [
+          {
+            "file": "t03-49-10.png",
+            "caption": "图1 论坛过渡 / 开场",
+            "note": "进入未来架构议题。"
+          },
+          {
+            "file": "t03-50-50.png",
+            "caption": "图2 目录",
+            "note": "软硬协同优化 + 震旦 Insight。"
+          }
+        ]
+      },
+      {
+        "heading": "1. 趋势与阶段画像",
+        "bullets": [
+          "模型与硬件不同步。",
+          "Prefill / Attn / FFN 资源画像。"
+        ],
+        "images": [
+          {
+            "file": "t03-51-40.png",
+            "caption": "图3 模型与硬件趋势",
+            "note": "长上下文、MoE、硬件不同步。"
+          },
+          {
+            "file": "t03-52-30.png",
+            "caption": "图4 模型各阶段硬件需求",
+            "note": "Prefill / Attn / FFN 画像。"
+          }
+        ]
+      },
+      {
+        "heading": "2. 架构拆分到硬件分离",
+        "bullets": [
+          "P/D + AFD 可组合。",
+          "A/F 专用卡与 AF Handoff。"
+        ],
+        "images": [
+          {
+            "file": "t03-55-00.png",
+            "caption": "图5 从架构拆分到硬件分离",
+            "note": "P/D + AFD 可组合。"
+          },
+          {
+            "file": "t03-57-30.png",
+            "caption": "图6 AFD 架构",
+            "note": "Attention 池 ↔ Expert 池。"
+          },
+          {
+            "file": "t04-00-00.png",
+            "caption": "图7 下一代 A/F 硬件设计",
+            "note": "A 卡 / LPU F 卡 / AF Handoff。"
+          }
+        ]
+      },
+      {
+        "heading": "3. Insight/Hisim 与落地",
+        "bullets": [
+          "高仿真选型前移。",
+          "开源合入与多厂商 POC。"
+        ],
+        "images": [
+          {
+            "file": "t04-02-30.png",
+            "caption": "图8 震旦 Insight 仿真系统",
+            "note": "无实物 + SGLang/vLLM。"
+          },
+          {
+            "file": "t04-03-20.png",
+            "caption": "图9 Hisim 仿真细节",
+            "note": "96%+ 准确率、虚拟时钟。"
+          },
+          {
+            "file": "t04-05-00.png",
+            "caption": "图10 Insight Console",
+            "note": "Agent + Roofline + 模块导入。"
+          },
+          {
+            "file": "t04-06-40.png",
+            "caption": "图11 开源社区协同",
+            "note": "SGLang × 阿里云 / HiSim。"
+          },
+          {
+            "file": "t04-07-30.png",
+            "caption": "图12 合作与展望时间线",
+            "note": "9–12 月里程碑。"
+          }
+        ]
+      }
     ]
   }
 ]
