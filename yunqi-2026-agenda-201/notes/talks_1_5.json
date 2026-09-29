@@ -1,0 +1,548 @@
+{
+  "talks": [
+    {
+      "id": "01",
+      "folder": "01-yangxu-agent-infra",
+      "title": "企业级大规模 Agent Infra 解决方案最佳实践",
+      "speaker": "杨旭",
+      "org": "阿里云",
+      "overview": "本场系统给出阿里云企业级 Agent Infra 的形态判断与产品架构：桌面助手/云端数字分身与 Agent Serving 两条主线并行，统一沉淀企业专属 Skills、MCP 与私域知识。Infra 不再追求模型永远正确，而以系统确定性收敛模型不确定性，覆盖安全执行环境、治理与数据安全、上下文管理、效果评估四大能力。核心产品 Agent Sandbox 以 MicroVM 强隔离 + Serverless/K8s 双形态交付，并用 AgentLoop 全链路 Trace、上下文记忆与全生命周期安全把 Agent 从黑盒变成可度量系统。",
+      "tech_points": [
+        {
+          "title": "Agent 形态演进：桌面分身与 Serving 双路径",
+          "details": [
+            "桌面助手/云端数字分身面向内部提效：IM/本地客户端 + 云端 Sandbox 协同，支持 7×24 独立运行与共享记忆；大企业因数据安全倾向自研。",
+            "Agent Serving/API 对接生产系统：垂直超级 Agent 基于私域数据，强调隔离、用户授权、Skills 管理与 Memory 隔离。",
+            "ToB/ToC/ToD 入口趋于统一，企业重点积累专属 Skills、MCP 与知识；Harness 建议扩展成熟框架而非自研底层。"
+          ],
+          "metrics": [
+            "云边协同：本地入口 + 云端 Sandbox 常驻运行",
+            "能力沉淀：内部 Skills 仓库 / 私有 MCP / 私域数据互通"
+          ],
+          "image": "t00-01-30.png",
+          "hcs_insight": "HCS 规划应同时覆盖「办公助手类长会话 Agent」与「生产系统 Serving Agent」两套产品形态，统一提供私有 Skills/MCP 注册与租户级知识互通能力；在混合云场景优先支持客户自建分身接入栈内 Sandbox，而非仅对外公网托管。"
+        },
+        {
+          "title": "Agent 对 Infra 提出的四大挑战",
+          "details": [
+            "高性能安全执行环境：Agent 需快速弹性、安全隔离地执行生成代码、操作系统交互与工具调用，自建成本高、隔离难。",
+            "Agent 治理与数据安全：统一管理 Agent/模型/工具（Skills、MCP），身份认证、细粒度权限与使用审计。",
+            "上下文管理：知识库与记忆的压缩、隔离、跨会话画像、长期遗忘与知识编译。",
+            "效果评估与持续优化：日志存储、模型/工具全链路追踪、RCA、成本洞察与效果评估。"
+          ],
+          "metrics": [
+            "设计哲学：用系统确定性收敛模型不确定性（可预测、可隔离、可恢复）"
+          ],
+          "image": "t00-03-30.png",
+          "hcs_insight": "HCS 技术规划应把 Agent Infra 拆成执行沙箱、IAM/审计、上下文存储、可观测评测四条独立能力线，避免只堆推理网关；私有云尤其要把「错误可隔离可恢复」写入沙箱与网关 SLA，而不是假定模型输出可信。"
+        },
+        {
+          "title": "阿里云 Agent Infra 五层产品架构",
+          "details": [
+            "接入层：Web/App、钉钉/微信/飞书 IM、桌面助手/云端数字分身、垂直 Agent、OpenAPI/SDK。",
+            "运行平台五支柱：环境（MicroVM Sandbox、文件系统、网络/出站、可观测评测）、上下文（长期记忆、知识、统一上下文供给）、工具（Skills 仓库/市场、MCP、Code/Browser/Computer 统一底盘）、安全（User→Agent→Tool 身份、运行时/Prompt 检测、审计）、LLM（千问/私有模型/第三方）。",
+            "底座：弹性计算、存储、网络、安全、云原生 + 百炼/Agent Skills 开放门户；上层兼容 Qoder、Claude Code、Codex、DeepSeek Harness 等。"
+          ],
+          "metrics": [
+            "平台能力口号：跑得稳 / 记得住 / 用得着 / 管得住 / 核心脑"
+          ],
+          "image": "t00-05-30.png",
+          "hcs_insight": "对标 HCS 产品地图时，应用侧不应只交付「推理服务」，而需补齐 Skills/MCP 市场、长期记忆/知识引擎、MicroVM 级沙箱与 Agent 身份链；建议以 ACK/CCI 为底座编排沙箱，用 ModelArts/EI 网关承载 LLM 路由与护栏，形成可售卖的 Agent 平台 SKU。"
+        },
+        {
+          "title": "Agent Sandbox：Serverless 与 K8s 双形态交付",
+          "details": [
+            "业务场景：Agent Use/Serving（工具调用、代码执行、浏览器、长会话）与 Agent RL/Eval（SWE-bench、Browser RL、Computer Use Eval 大规模并发）。",
+            "Serverless 版：面向开发者，API/E2B 兼容、开箱即用免运维；容器版：K8s Native API/CRD，面向 AI Infra/平台团队统一编排治理。",
+            "四大价值柱：MicroVM 安全隔离 + 动态挂载/网络隔离；镜像/快照加速与自研调度；深度资源池化、秒级唤醒、Scale-to-Zero；兼容 E2B 与 K8s 生态。"
+          ],
+          "metrics": [
+            "双交付：Serverless API（E2B 兼容）+ K8s CRD",
+            "成本能力：Scale-to-Zero + 秒级唤醒"
+          ],
+          "image": "t00-07-30.png",
+          "hcs_insight": "HCS 应规划「开发者 Serverless 沙箱 API」与「平台侧 K8s CRD 沙箱」双 SKU：前者对标 E2B 降低应用迁移成本，后者落在 CCE/CCI 上满足专属云多租户治理；RL/Eval 与在线 Serving 共用同一隔离底盘，避免两套运行时分叉。"
+        },
+        {
+          "title": "生产级硬指标：隔离、弹性、成本、生态",
+          "details": [
+            "安全隔离：MicroVM 硬件级隔离；多存储介质多租户动态挂载与 100% 文件路径隔离；L4/L7 出站域名/IP 黑白名单；API Key 真假密钥替换与临时 RAM 凭证；多集群容灾。",
+            "极致弹性：单 Region 百万级 Sandbox；全区创建吞吐 10 万/分钟；单租户并发创建 1000 实例 P99 <1s；模板预热启动 <180ms；资源池预热 <20ms；深休眠唤醒 <600ms。",
+            "成本优化：会话亲和 + 深休眠/浅休眠，综合降本最高约 70%；快照长期保态；多档 QoS 算力。生态近 100% E2B 兼容。"
+          ],
+          "metrics": [
+            "Region 创建吞吐：100,000/分钟",
+            "单 Region 规模：百万级 Sandbox",
+            "冷/热启动 P99：<180ms / <20ms；深休眠唤醒 <600ms",
+            "成本：最高约 70% 降本；E2B 兼容近 100%"
+          ],
+          "image": "t00-09-30.png",
+          "hcs_insight": "可将上述硬指标作为 HCS Agent 沙箱对标看板：专属云优先补 MicroVM/Kata 级隔离、出站策略与密钥替换网关；弹性侧要具备预热池与浅/深休眠，否则私有池固定售卖无法支撑突发工具调用与 RL 采样，TCO 也无法与公有云竞品对话。"
+        },
+        {
+          "title": "存储动态挂载与分层存储选型",
+          "details": [
+            "会话亲和将同一用户调度到同一实例；实例生命周期内一对一服务用户，按 UID 目录动态挂载实现文件系统隔离。",
+            "存储分层：AgenticFS/PolarDB LakeBase 面向海量租户小文件读写与成本平衡；EBS 面向超低时延高 IOPS 与深休眠/镜像缓存；OSS Agentic Bucket 面向海量多模态低成本归档。"
+          ],
+          "metrics": [
+            "隔离模型：1 实例 : 1 用户会话 + UID 级目录挂载",
+            "存储三档：文件/块/对象按 Agent 负载选型"
+          ],
+          "image": "t00-11-30.png",
+          "hcs_insight": "HCS 需在 CCI/沙箱产品中定义「会话级动态挂载」契约，并规划 Agent 友好文件系统（小文件、多租户目录隔离）与对象冷存分层；仅靠通用 NAS 难以满足沙箱启停与按用户零残留要求。"
+        },
+        {
+          "title": "AgentLoop 全链路 Trace：从黑盒到可度量",
+          "details": [
+            "场景闭环：观测审计（无侵入采集）→ 评估实验（数据集回测）→ 持续优化（工具与上下文调优）。",
+            "链路：客户端 → ALB（路由/鉴权/WAF）→ Agent 应用（AgentLoop SDK/探针 + Sandbox 集群）→ AI 网关（Proxy、Token 限流、安全护栏）→ 模型/工具（RAG、记忆库、MCP）。",
+            "效果：推理质量 +20~30%、MTTR -50%、Token -40%+、行为全链路审计 100%。"
+          ],
+          "metrics": [
+            "质量提升：+20%~30%",
+            "故障定位：MTTR -50%",
+            "成本：Token -40%+",
+            "审计覆盖：100% 全链路"
+          ],
+          "image": "t00-13-30.png",
+          "hcs_insight": "HCS 应把 Agent 探针/Trace、AI 网关限流护栏与沙箱日志统一接入 AOM/LTS，形成面向 Agent 的可观测与评测产品，而不是复用普通微服务 APM；这是专属云客户做效果闭环与合规审计的刚需缺口。"
+        }
+      ],
+      "summary_insights": [
+        "HCS 应立项「Agent 平台」整包能力：MicroVM 沙箱（Serverless API + K8s CRD）、Skills/MCP 私有市场、上下文/记忆存储、AI 网关护栏与 AgentLoop 级可观测，对标阿里云 Agent Infra 五支柱。",
+        "专属云差异化重点放在私域数据不出域、企业 IAM 贯通 User→Agent→Tool、以及沙箱出站/密钥替换；这些是客户自研桌面分身与垂直 Agent 的决策门槛。",
+        "用生产硬指标（万/分钟创建、浅深休眠、E2B 兼容）建立对标与验收标准，驱动 CCI/CCE、存储与安全产品联动路线，而不是仅发布概念白皮书。"
+      ]
+    },
+    {
+      "id": "02",
+      "folder": "02-hong-luo-sandbox-rl",
+      "title": "Agent Sandbox 加速训练与评测闭环与百炼 Agent RL/Eval",
+      "speaker": "洪晓龙 / 罗自荣",
+      "org": "阿里云 / 阿里控股·百炼模型训练",
+      "overview": "本场前半由洪晓龙产品化讲解 Agent Sandbox：以 API First、E2B 原生兼容将代码任务、交互任务与批量评测统一到 MicroVM 隔离环境，支撑探索、验证与规模评测。后半由罗自荣展开百炼多租户企业级 Agentic RL 平台：覆盖 CPT/SFT/DPO/PPO/GRPO/OPD 训练方法，控制面—Sandbox 执行面—GPU 训练面—观测面分层，并用多 Region 内网架构与训练/评测共享 Rollout/Reward 函数实现规模化闭环。",
+      "tech_points": [
+        {
+          "title": "Agent Sandbox：工具与环境执行产品化",
+          "details": [
+            "输入任务类型：代码（仓库/依赖/测试）、交互（浏览器/文件/工具）、批量评测（多任务多尝试）。",
+            "核心能力：镜像缓存与按需加载实现极速就绪；批量创建与按需回收实现弹性供给；MicroVM + 访问控制实现安全隔离；任务状态与多步交互实现连续执行。",
+            "生命周期：准备→创建（每次 attempt 独立环境）→执行（多步交互回传结果）→回收；环境日志指标可关联上层轨迹，由百炼统一训练观测。"
+          ],
+          "metrics": [
+            "接口：API First · E2B 原生兼容",
+            "隔离：MicroVM + 访问控制"
+          ],
+          "image": "t00-26-00.png",
+          "hcs_insight": "HCS 应把「评测/训练用临时环境」与「在线 Serving 沙箱」统一为同一产品的不同 QoS 档位，并提供 E2B 兼容 SDK，便于客户把开源 Agent 评测流水线迁入专属云；attempt 级创建销毁是 RL/Eval 的最小运维单元。"
+        },
+        {
+          "title": "百炼 Loop Engineering：RL Loop 与 Agent Loop 共用沙箱",
+          "details": [
+            "RL Loop：策略模型 → Sandbox 交互采样（Rollout/多步轨迹）→ Sandbox 奖励反馈 → 参数更新；经 Eval 验证后进入 Agent Loop。",
+            "Agent Loop：模型决策 → 工具调用（内置工具 + MCP，Sandbox 承载）→ 环境执行（代码/浏览器/文件）→ 结果反馈；轨迹沉淀→难例分析→筛选迭代回流训练。",
+            "价值主张：5 分钟上手即用即毁；创建速率 10 万/分钟；超大规格 1~2s 并发启动（5000 并发、3GB 异构镜像）；深休眠等能力综合 TCO 降约 50%。"
+          ],
+          "metrics": [
+            "上手：5 分钟",
+            "创建速率：100,000/分钟",
+            "大规格并发启动：1~2s（5000 并发 / 3GB 镜像）",
+            "综合 TCO：约 -50%"
+          ],
+          "image": "t00-30-00.png",
+          "hcs_insight": "HCS 规划 RL 平台时必须把 Sandbox 作为采样与奖励执行的一等公民，而不是训练集群附属脚本；训练与在线 Agent 共用 MCP/工具执行面，才能保证「训推环境一致」，这是专属云客户最关心的效果可迁移性问题。"
+        },
+        {
+          "title": "百炼模型训练产品矩阵与典型流程",
+          "details": [
+            "产品能力：数据管理、模型调优、一键部署推理、多维评测自动打分。",
+            "训练方法：CPT、SFT、DPO、RL（PPO/GRPO）、自研 OPD（On-Policy Distillation）。",
+            "支持模态：文本 LLM、视觉语言、文生图/视频、TTS/语音、多模态 Omni。",
+            "典型流程：构建评测集→发起训练→观察指标→效果评估（含 RL&OPD 轨迹与日志）→部署→评测分析→迭代。"
+          ],
+          "metrics": [
+            "RL 算法产品化：PPO / GRPO",
+            "蒸馏：OPD 作为一等训练方法"
+          ],
+          "image": "t00-36-00.png",
+          "hcs_insight": "ModelArts/EI 路线需把 GRPO/PPO 与蒸馏（类 OPD）做成托管能力，并强制「先评测集后训练」工作流；专属云客户不会接受只有 SFT 的平台，Agent 时代 RL/Eval 是训练产品竞争力门槛。"
+        },
+        {
+          "title": "多租户 Agentic RL 技术架构：控制/执行/训练/观测四平面",
+          "details": [
+            "用户/SDK：百炼 SDK/CLI/控制台提交 Dataset、Model、Rollout、Reward 实体与训练任务。",
+            "控制面：训练编排调度、函数实体（层/镜像/代码）、Sandbox 多租户隔离与函数实例扩缩。",
+            "执行面 Sandbox：Rollout/Reward 函数、策略代码隔离、Tools/MCP；训练面 GPU：Trainer Gateway、Rollout Worker 推轨迹入 Quasar Queue、Trainer Worker（GRPO/PPO）拉取并 Sync 权重。",
+            "观测面：SLS 日志、指标看板、轨迹回放；闭环 Rollout→Reward→Queue→Trainer→Sync→Observe。"
+          ],
+          "metrics": [
+            "采样与训练解耦：Rollout Worker / Trainer Worker + 轨迹队列",
+            "执行隔离：Agent Sandbox 与函数环境分离"
+          ],
+          "image": "t00-38-00.png",
+          "hcs_insight": "HCS 应参考四平面拆分：控制面（任务与配额）、Sandbox 执行面（不可信用户代码）、GPU 训练面、全链路观测；私有云尤其要避免把客户 Rollout 代码直接跑在训练节点上，否则多租户安全与资源争用无法过关。"
+        },
+        {
+          "title": "RL 训练网络架构：安全、性能、成本三角",
+          "details": [
+            "安全：云盾 + Agent Sandbox 专属内网通道、ALB 攻防；业务侧 Trainer Gateway API KEY 校验。",
+            "性能：Layer 镜像预创建一次推送多 Region，FC 按需加载实现秒级弹性；全链路内网低时延。",
+            "成本：避免公网带宽、多 Region 就近接入；Region 内 Sandbox 经专属通道访问客户 VPC（OSS/RDS），训练容器同 VPC 内网通信。"
+          ],
+          "metrics": [
+            "弹性：Sandbox 秒级加载扩缩",
+            "部署：北京/上海/乌兰察布多 Region 一致架构"
+          ],
+          "image": "t00-40-00.png",
+          "hcs_insight": "专属云/混合云要对齐「Sandbox 安全通道进客户 VPC + 训练集群同网内」模式：推理/训练网关做密钥校验，镜像分层预热跨可用区推送；这直接决定 HCS 上 Agentic RL 能否满足客户数据不出 VPC 与低时延采样。"
+        },
+        {
+          "title": "RL 工具与环境五层生态",
+          "details": [
+            "本机系统工具：本地命令/服务直连 Rollout，Shell/CLI、文件系统、脚本。",
+            "百炼内建工具：代码执行、浏览器、联网搜索，平台一次建设降低用户研发成本。",
+            "Sandbox 自定义工具：环境隔离、工具定制、状态保持、弹性伸缩与动态绑定。",
+            "内部工具接口化：存量系统 API 化 + VPC 内网直连；公网工具服务：MCP、SaaS、第三方 API。"
+          ],
+          "metrics": [
+            "工具接入路径：本机 → 内建 → Sandbox 自定义 → VPC 内网 → 公网 MCP"
+          ],
+          "image": "t00-44-00.png",
+          "hcs_insight": "HCS 工具生态规划应按五层给出接入白皮书：优先打通 VPC 内网企业系统与 MCP 网关，再提供托管浏览器/代码解释器；缺少「内网工具接口化」会导致 Agent RL 只能做公开基准、无法服务真实企业任务。"
+        },
+        {
+          "title": "训练与评测共享代码的闭环",
+          "details": [
+            "Rollout/Reward 部署为函数实例，训练与评测共享代码，仅切换后端模型；支持实体持久、实例准时隔离。",
+            "Agent Sandbox 内同时承载训练/评测环境实例（容器+镜像），提供代码/Shell、浏览器/搜索、内网/公网工具。",
+            "流程：准备评测数据→部署训练模型→部署函数实例→切换后端模型→Rollout→Reward→统计分析（avg reward、pass@1、pass_rate）。"
+          ],
+          "metrics": [
+            "评测指标：avg reward / pass@1 / pass_rate",
+            "原则：训练奖励上升 ≠ 真实能力，必须独立评测"
+          ],
+          "image": "t00-46-00.png",
+          "hcs_insight": "HCS 应强制「训练/评测同一 Rollout·Reward 制品、仅换模型后端」的平台约束，并提供 pass@k 类报表；这能堵住专属云客户「训练分数好看、上线崩盘」的常见坑，也是对标百炼 Agent RL/Eval 的可执行产品要求。"
+        }
+      ],
+      "summary_insights": [
+        "把 Agent Sandbox 定位为 RL 采样与 Agent 工具执行的共享执行面，用 E2B 兼容 API + MicroVM 隔离进入 HCS 产品目录。",
+        "Agentic RL 平台按控制面/Sandbox/GPU 训练面/观测面建设，采样与训练队列解耦，网络上坚持客户 VPC 内网通道与镜像分层预热。",
+        "训练方法补齐 GRPO/PPO/蒸馏与独立 Eval（pass@k），工具层用 MCP + VPC 内网接口化覆盖企业真题，形成可售卖的多租户 RL/Eval 闭环。"
+      ]
+    },
+    {
+      "id": "03",
+      "folder": "03-lu-yan-million-agent",
+      "title": "驾驭百万级 Agent：Sandbox 核心能力与千问办公实践",
+      "speaker": "卢萌凯 / 严龙",
+      "org": "阿里云 Agent Sandbox / 阿里巴巴 ATH·千问办公",
+      "overview": "本场前半由卢萌凯拆解 Agent Sandbox 三类核心负载（Use 短生命周期工具、In 长会话分身、RL/Eval 十万级并发）及极速版架构：E2B 兼容、MicroVM 六维隔离、浅/深休眠与快照降本、多级缓存冲击百万级并发。后半由严龙以千问办公实践给出沙箱五条硬要求与选型路径，展示预热池把创建等待压到一秒级、真实凭证不进沙箱的分层隔离，以及生命周期降本与仍在推进的挂载/一次一票/自动水位/跨地域容灾优化。",
+      "tech_points": [
+        {
+          "title": "三类 Sandbox 负载画像与指标短板",
+          "details": [
+            "Agent Use：Code Interpreter、Browser/Computer Use、MCP Server、Skills Sand箱；短生命周期、高频创建、突发流量，要求低延迟创建、快速销毁、强隔离。",
+            "Agent In：Coding Agent、长任务、数字分身、个人助手、多智能体协同；长生命周期、强状态依赖、低活跃利用率，要求会话亲和、休眠恢复、低空闲成本。",
+            "Agent RL/Eval：SWE-bench、OSWorld、Computer Use 评测；批量 Rollout/重置/Fork/回放，要求十万级并发创建、秒级启动、故障隔离。"
+          ],
+          "metrics": [
+            "关键指标：创建速度、并发容量、状态保活/恢复、强隔离、单位成本",
+            "结论：任一短板都会成为企业 Agent 平台规模化瓶颈"
+          ],
+          "image": "t00-51-00.png",
+          "hcs_insight": "HCS 沙箱产品应按三类负载定义不同规格与计费（瞬时工具型、长会话休眠型、评测高并发型），避免一套 Pod 规格打天下；私有池容量规划也必须以「空闲占比高」的 In 型负载为中心设计休眠策略。"
+        },
+        {
+          "title": "极速版架构：E2B 兼容与增强运行时",
+          "details": [
+            "生态接入：E2B SDK 原生、OpenAPI、MCP/CLI Agent 友好工具。",
+            "统一生命周期语义的 OpenAPI/SDK；运行时为安全隔离 MicroVM，内置 E2B Native + 云原生增强。",
+            "增强项：差异化 QoS、深/浅休眠与快照；用户/目录级动态存储挂载；VPC 与 L4/L7 黑白名单；Agent Identity + 安全中心；请求日志与全链路可观测；底座全托管 Serverless 多 AZ。"
+          ],
+          "metrics": [
+            "形态：Serverless 免运维 + MicroVM 运行时",
+            "生态：E2B SDK / OpenAPI / MCP"
+          ],
+          "image": "t00-53-00.png",
+          "hcs_insight": "对标建设时优先保证 E2B API 语义兼容与 MCP 工具入口，再叠加专属云增强（VPC 出站、企业身份、审计）；这能让千问办公类应用与开源 Agent 框架同时落 HCS，缩短客户迁移路径。"
+        },
+        {
+          "title": "生产可用前提：六维安全隔离",
+          "details": [
+            "风险画像：恶意代码执行、敏感数据泄露、沙箱逃逸、身份冒用/越权、多租户交叉污染。",
+            "方案：MicroVM 运行环境隔离；一实例一会话结束即毁；函数级权限与短时 STS/可轮换 token；会话动态挂载持久存储、销毁零残留；默认无公网出口 + 安全组/ACL/域名 IP 白名单；会话级日志监控审计。"
+          ],
+          "metrics": [
+            "会话模型：1 函数实例 : 1 会话，结束即销毁",
+            "网络默认：无公网出口"
+          ],
+          "image": "t00-55-00.png",
+          "hcs_insight": "专属云安全基线应把「默认无出站 + STS 短票 + 会话销毁零残留 + MicroVM」写成 Agent 沙箱强制策略，并与企业 IAM/堡垒机审计打通；这是金融/政务客户验收 Agent 平台的硬门槛。"
+        },
+        {
+          "title": "浅休眠 + 深休眠 + 快照深度降本",
+          "details": [
+            "浅休眠：按请求感知触发，相对活跃降本约 50%，唤醒约 1ms，实例仍在、内存磁盘保留、vCPU 不计费。",
+            "深休眠：TTL 自动或手动，降本约 70%，唤醒 <1s，实例回收、内存磁盘落云盘，恢复需重连网络。",
+            "快照：保存文件系统与内存状态，支持新路径启动与 1:N Fork，基于快照启动 <1s；内置网关实时感知请求并在活跃/浅休眠/深休眠间调度。"
+          ],
+          "metrics": [
+            "浅休眠：~50% 降本，唤醒 ~1ms",
+            "深休眠：~70% 降本，唤醒 <1s",
+            "快照启动：<1s，支持 1:N Fork"
+          ],
+          "image": "t00-57-00.png",
+          "hcs_insight": "私有/混合云算力更贵更固定，HCS 必须把浅/深休眠与快照 Fork 做成沙箱平台能力，并由网关感知请求自动迁态；否则百万级办公 Agent 会把专属云资源池拖垮或被迫过度采购。"
+        },
+        {
+          "title": "大规模并发：多级缓存与亲和调度",
+          "details": [
+            "模板：官方 Code/Browser/Computer Use/Bench + 自定义 E2B Template 与 Template Cache API。",
+            "多级缓存：节点内存→本地盘→CPFS→P2P→ACR/OSS；自研 ANSM 网关收敛 ENI、亲和/打散调度、千万级元数据、快照缓存、异构算力混部。",
+            "性能：10 万/分钟创建、单 Region 百万级；冷启动 P99 <180ms、热启动 <20ms、深休眠唤醒 <600ms、单租户 1000 并发创建 P99 <1s。"
+          ],
+          "metrics": [
+            "创建吞吐：100,000/分钟；规模：百万级/Region",
+            "P99：冷 <180ms；热 <20ms；深休眠唤醒 <600ms"
+          ],
+          "image": "t00-59-00.png",
+          "hcs_insight": "高密沙箱的瓶颈常在 ENI/镜像分发而非 CPU：HCS 需评估网卡收敛（类 ANSM）、P2P/分层镜像缓存与元数据面扩展；这些是 CCE 节点池与容器网络团队要同步进路线图的 Infra 项。"
+        },
+        {
+          "title": "千问办公五条硬要求与三条选型路径",
+          "details": [
+            "硬要求：启动够快、状态能留、隔离够硬、规模能撑（千万用户级）、成本可控；难在五条同时成立，启动与隔离、成本与状态存在张力。",
+            "路径一第三方沙箱：一周可验证但并发/调度权/数据驻留不可控，规模扛不住。",
+            "路径二开源自建：调度与数据主权可控，但机器/镜像/网络/扩缩成日常 Infra 负担。",
+            "路径三托管 Agent Sandbox 极速版：五要求同时满足，业务团队拿满能力、不自己扛 Infra。"
+          ],
+          "metrics": [
+            "目标规模：千万级用户与海量并发任务",
+            "选型结论：能力要拿满，Infra 不自己扛"
+          ],
+          "image": "t01-03-00.png",
+          "hcs_insight": "面向政企办公 Agent，HCS 应主推「托管沙箱服务」而非让客户业务队自建 Kata/Firecracker；同时用专属云保证调度权与数据驻留，正好卡在第三方公有沙箱与纯自建之间的价值位。"
+        },
+        {
+          "title": "预热池秒级创建与分层隔离（真凭证不进沙箱）",
+          "details": [
+            "早期五段串行创建数十秒；现在预置环境/预热实例池/预创建存储，请求到达仅取预热实例并挂载，等待压到一秒级。",
+            "入口身份与企业归属强校验；沙箱内只见假密钥，真实凭证在出网层替换；记忆/上下文按身份查询后注入，不落沙箱；出网与落盘白名单收敛。",
+            "生命周期：主动释放短任务、先深休眠再销毁、对账兜底防泄漏；后续优化含挂载加速、一次一票、自动水位、跨地域容灾。"
+          ],
+          "metrics": [
+            "创建等待：数十秒 → 一秒级",
+            "隔离原则：四道防线乘法关系；MicroVM 保底"
+          ],
+          "image": "t01-07-00.png",
+          "hcs_insight": "HCS 办公 Agent 方案应标配预热池与「密钥出网替换/上下文外置」安全模型，并把跨 AZ/跨站点容灾列入沙箱平台底座缺口；一次一票与自动水位是可排期的安全与成本增强项。"
+        }
+      ],
+      "summary_insights": [
+        "按 Use/In/RL 三类负载设计沙箱规格、休眠策略与计费，是支撑百万至千万级办公 Agent 的前提。",
+        "极速版对标能力：E2B 兼容、MicroVM 六维隔离、浅/深休眠+快照、多级镜像缓存与网卡收敛，构成 HCS 与阿里云竞争力差距的可量化清单。",
+        "千问办公验证了「托管拿能力、专属云保数据主权」路径；HCS 应以此讲清相对公有第三方沙箱与客户自建的差异化，并补预热池、凭证替换、跨地域容灾。"
+      ]
+    },
+    {
+      "id": "04",
+      "folder": "04-hua-ack-data-flywheel",
+      "title": "以 ACK 为底座的开放产线与数据飞轮",
+      "speaker": "华相",
+      "org": "阿里云容器服务 ACK",
+      "overview": "本场围绕 ACK 托管底座上的开放 AI 数据产线：以「数据闭环天然是工作流」为起点，用全托管容器 Argo 工作流集群编排大规模离线数据与科学计算（相对开源自建宣称约 30% 资源成本节省、规模约 10×）；Argo 原生纳管 RayCluster 生命周期，打通数据收集→Spark→Ray→PyTorch→归档；Ray on ACK 面向大模型/具身/智驾等分布式计算，给出万级 Pod 秒级扩容与单集群海量 RayCluster 并发指标。",
+      "tech_points": [
+        {
+          "title": "全托管容器 Argo 工作流集群",
+          "details": [
+            "定位：云原生离线任务编排与运行引擎，全托管免运维，支撑大规模数据处理流水线；场景含 AI 数据准备、科学计算、金融量化、仿真、数据处理、CI。",
+            "架构：Argo API/CLI/UI/Python SDK → ACK 控制面（Argo Server/Event/Workflow Controller）→ ACS Serverless CPU/GPU Pod 与节点池混部，并行超配与公平调度；存储云盘/快照/OSS/NAS；事件驱动对接 Git/OSS/EventBridge；RAM/ARMS/SLS 集成。",
+            "能力点：多算力、万级并发工作流与千万级任务、OSS 缓存吞吐提升、多租配额与 GPU 弹性公平调度、开箱可观测与自愈。"
+          ],
+          "metrics": [
+            "相对开源自建：资源成本约 -30%，规模约 10×",
+            "规模：10,000+ 并发工作流；OSS 缓存数据吞吐约 10×"
+          ],
+          "image": "t01-21-00.png",
+          "hcs_insight": "HCS 应在 CCE 上提供托管 Argo/Workflow 类 SKU（控制面托管 + Serverless/节点池执行），并把对象存储缓存、GPU 公平配额、事件触发做成默认集成；这是数据飞轮与 Agent 评测批跑的编排底座，不能只交给客户自建开源 Argo。"
+        },
+        {
+          "title": "Argo Workflows 生态集成：纳管 RayCluster",
+          "details": [
+            "典型流水线：数据收集 → Spark job → Ray job → PyTorch job → 数据归档，由容器 Argo 工作流集群一站编排。",
+            "栈结构：ACK 控制面 → Argo Workflow + Plugins → Ray / PyTorch / Spark。",
+            "能力：用 Argo 管理 RayCluster 部署/扩缩/删除全生命周期；编排复杂流程并复用既有 CD；Argo UI 记录展示 RayJob 执行结果。"
+          ],
+          "metrics": [
+            "编排对象：RayCluster 全生命周期 + RayJob 可观测",
+            "流水线：Spark / Ray / PyTorch 同引擎串联"
+          ],
+          "image": "t01-22-30.png",
+          "hcs_insight": "开放产线关键是「工作流引擎纳管分布式计算框架」：HCS 应提供 Argo/Volcano 等与 Ray Operator 的托管组合，让数据准备与训练任务在同一 K8s 控制面流转，降低专属云客户维护多套编排系统的成本。"
+        },
+        {
+          "title": "Ray on ACK：容器优化的分布式计算",
+          "details": [
+            "面向大模型、具身智能、自动驾驶等大规模多模态数据处理与分布式 AI 计算；服务算法与 DevOps 双角色。",
+            "Ray on ACK：Head/Worker Pod 自动扩缩；全生命周期、自动扩缩容、角色授权；底座 ACK Pro 托管企业级 K8s，节点池（ECS/EGS/灵骏）与 ACS Serverless 混部。",
+            "强调容器原生优化方案，统一入口使用异构算力。"
+          ],
+          "metrics": [
+            "Ray Worker 弹性：30 秒扩至 10,000 容器",
+            "单 ACK 集群并发：约 30,000 个 RayCluster"
+          ],
+          "image": "t01-24-00.png",
+          "hcs_insight": "将「30s 万 Pod、单集群数万 RayCluster」作为 HCS 调度与控制面压测目标；专属云需支持智算裸金属/GPU 池与 Serverless 突发在同一 CCE 集群混部，否则数据飞轮峰值只能靠预留浪费。"
+        },
+        {
+          "title": "数据闭环：天然的工作流模式",
+          "details": [
+            "以智驾/具身类场景为例：直采车/主机厂多传感器采集 → 回传与仿真数据汇入数据管理平台（本地+云端存储）→ 处理/挖掘 → 自动+人工标注 → 数据集管理 → 训练与迭代优化。",
+            "下游接仿真平台：SIL/HIL/DIL/VIL 等在环测试，配套场景库、模型技术、测试工具与评估体系；优化后再部署回流，形成闭环。",
+            "底座治理横切：合规、采集确权、分类分级、脱敏加密、共享与跨境，决定产线能否进生产。"
+          ],
+          "metrics": [
+            "闭环环节：采集→标注→训练→多形态在环仿真→部署回流",
+            "存储形态：本地存储 + 云端存储统一进入数据管理平台"
+          ],
+          "image": "t01-16-00.png",
+          "hcs_insight": "HCS 开放产线规划要以「工作流化数据闭环」为产品骨架，而不是散装大数据组件；政企交付需默认带齐分类分级、脱敏与跨境治理能力，否则飞轮停在实验室。"
+        },
+        {
+          "title": "为什么需要工作流引擎",
+          "details": [
+            "复杂产线（如 Kubeflow/TF-Serving 类 CI 流水）需要：任务串行、中间数据传递、并发度配置、调度与失败重试。",
+            "工作流引擎把「人盯脚本」升级为可观测、可重试、可并行的编排资产，是数据飞轮规模化的控制面。",
+            "与托管 Argo 形成因果链：先有工作流范式，再有 ACK 上的全托管执行底座。"
+          ],
+          "metrics": [
+            "引擎五能力：串联、传数、并发、调度、失败重试"
+          ],
+          "image": "t01-18-00.png",
+          "hcs_insight": "HCS 对标时不要只比 K8s 节点能力，要把「托管工作流引擎 + 对象存储/日志/鉴权一键集成」作为数据产线差异化；这是客户愿意从开源自建迁到专属云平台的关键理由。"
+        }
+      ],
+      "summary_insights": [
+        "以托管 Argo（Serverless/节点池混部）+ Ray on CCE/ACK 对标建设开放产线底座，用对象存储缓存与 GPU 公平配额吃下数据准备与分布式计算峰值。",
+        "产品叙事对齐「数据闭环=工作流」：采集—标注—训练—在环仿真—回流要有一站式模板，并把合规治理做成默认横切能力。",
+        "将「30s 万 Pod、单集群数万 RayCluster、万级并发工作流」写入 HCS 调度与控制面压测目标，作为与公有云 ACK 对标的硬指标。"
+      ]
+    },
+    {
+      "id": "05",
+      "folder": "05-zhao-yin-embodied",
+      "title": "敏捷基础设施助力具身智能（智元）",
+      "speaker": "赵堃 / 尹欣",
+      "org": "阿里云 / 智元（觅蜂）",
+      "overview": "本场展示阿里云具身智能基础设施与智元/觅蜂业务的结合：HPDA Robotics 一体化覆盖采集-管理-标注-训练-仿真-推理，ACK Pro 统一纳管 ECS/灵骏/ACS 与 Ray/Argo/DataJuicer；硬件侧推出面向推理仿真的 L20N（Blackwell）GPU。智元侧以真机/仿真/无本体三范式数据供给、MEGo 采集终端与众包「觅蜂派」形成洪峰采集，提出敏捷弹性、边缘到中心一体化等 Infra 需求，并用湖仓标准化与托管 Argo 海量数据处理引擎闭环交付。",
+      "tech_points": [
+        {
+          "title": "阿里云具身智能一体化平台架构",
+          "details": [
+            "数据层：兼容 HDFS/DB3/lerobot/mcap 等，支持转换/回放/检索/标注/训练；自研协议与 SDK、数据管道、任务编排、WEBIDE；APAK 加速 Spark/Ray。",
+            "编排与处理：全托管 Argo Workflows 支撑万级并发 Serverless 编排；Ray + DataJuicer 托管多模态处理（100+ 原子算子）。",
+            "容器与资源：ACK Pro/ACS 异构资源池、百万节点级兼容、每分钟数万 Pod 弹性；算力 ECS/ACS + EGS/灵骏，存储 CPFS/OSS，加速组件 LoongKit；模块化按需、拥抱开源无绑定。"
+          ],
+          "metrics": [
+            "弹性：每分钟数万 Pod 级",
+            "开源栈：Argo / Ray / DataJuicer / Kubernetes"
+          ],
+          "image": "t01-31-00.png",
+          "hcs_insight": "HCS 具身解决方案应打包「格式兼容数据湖 + 托管工作流 + Ray 算子市场 + 异构 GPU 池」，并强调开源无绑定以降低客户锁定期顾虑；LoongKit 类 OS 级加速可作为差异化性能项纳入智算底座。"
+        },
+        {
+          "title": "L20N：面向推理与仿真的 Blackwell GPU",
+          "details": [
+            "L20N（RTX Pro 5000）非切版 Quadro，48G/72G 显存，GDDR7 带宽 1344GB/s，搭配高频 CPU（256 vCPU、全核 4GHz+）。",
+            "相对 L20 算力约 2.3×、持续算力 +60%，Blackwell FP4 高效精度。",
+            "IsaacSim：物理仿真近 RTX 5090，图像生成快 10%~20%；满仓场景约 261 FPS。GR00T 全身控制：8×L20N-72G 相对 5090/4090 约 +32%/+35%，采集/学习/训练时延显著下降。"
+          ],
+          "metrics": [
+            "显存：48G / 72G；带宽：1344GB/s GDDR7",
+            "相对 L20：算力约 2.3×",
+            "GR00T 单机 8 卡：较 5090 约 +32%"
+          ],
+          "image": "t01-33-00.png",
+          "hcs_insight": "具身仿真与 VLA 推理对高显存与图形/物理仿真性能敏感，HCS 智算目录需单独规划「仿真推理卡」规格（高 VRAM + 高频 CPU 配比），不能只用训练卡规格覆盖；并给出 Isaac/GR00T 类基准作为售前压测项。"
+        },
+        {
+          "title": "ACK Pro：统一创建、运维与云边纳管",
+          "details": [
+            "上层：SAPIEN 仿真合成、Argo 数据处理、VLA/World Model 训练、ROS/仿真/OS/开发者工具。",
+            "ACK 托管 Pro：Batch/队列/拓扑感知/混部调度，资源与任务弹性，可观测自愈，数据访问加速，内置 Spark/Ray Operator。",
+            "资源：ECS 节点池、灵骏高性能 GPU/裸金属、ACS Serverless Pod；存储 EBS/OSS/CPFS。统一创建使用、统一运维、统一纳管调度（云上云下混合）。"
+          ],
+          "metrics": [
+            "一集群混部：ECS + 灵骏 + ACS Serverless",
+            "框架：内置 Spark / Ray Operator"
+          ],
+          "image": "t01-35-00.png",
+          "hcs_insight": "对标要求 HCS CCE 在同一控制面混部通用算力、智算裸金属与 CCI Serverless，并原生提供 Ray/Spark Operator 与拓扑感知调度；「云上云下统一纳管」是专属云/边缘客户选栈的关键卖点。"
+        },
+        {
+          "title": "智元/觅蜂：物理 AI 数据供给与产品矩阵",
+          "details": [
+            "定位：一站式物理 AI 数据服务，真机/仿真/无本体三范式规模化供给；蜂巢数据共创行动连接全球采集网络。",
+            "MEGo 无本体采集终端（Gripper+View）毫米级轨迹重建；MEGo Engine 数据治理平台原始到训练数据全流程自动化，标注效率约 10×。",
+            "G2 Air 一体本体兼顾采集与轻量作业；众包 App「觅蜂派」拉动脉冲式采集订单。"
+          ],
+          "metrics": [
+            "采集网络：20+ 城市；共创节点：5 国",
+            "标注效率：约 10×；轨迹：毫米级重建"
+          ],
+          "image": "t01-39-00.png",
+          "hcs_insight": "HCS 服务具身客户时要预置「多源数据采集接入 + 治理引擎 + 湖仓标准化」方案包，支持无本体/真机异构数据同管；众包与多城市回流意味着对象存储、带宽与批次处理要按洪峰而非日均设计。"
+        },
+        {
+          "title": "需求一：敏捷弹性——算力随采集洪峰伸缩",
+          "details": [
+            "采集从基地走向千家万户，订单随运营活动脉冲；Infra 应为峰值而生而非预买 100× 容量。",
+            "行业信号：觅蜂派租设备接单回传；对标 Figure Index 类平台 4 个月覆盖 108 国、4.4 万 WAU、1600 万视频、1500 万美元分成；峰值回传约每秒 30 分钟视频≈每天 4.9 年人工操作量。",
+            "方案：ACK Pro 弹性节点池 + Serverless 容器 + 全托管 Argo；压测峰值并行 Pod 1.6 万、CPU 利用率 100%、Argo 调度零瓶颈。"
+          ],
+          "metrics": [
+            "压测：并行 Pod 16,000；CPU 利用率 100%",
+            "峰值回传：约 30 分钟视频/秒"
+          ],
+          "image": "t01-43-00.png",
+          "hcs_insight": "专属云固定容量与洪峰矛盾突出：HCS 需提供「弹性节点池 + CCI + 托管工作流」组合吃采集峰值，并用错峰批处理避免回传积压；售前应用 万级并行 Pod 压测作为具身数据平台验收项。"
+        },
+        {
+          "title": "需求三：边缘到中心一体化与 ACK Edge",
+          "details": [
+            "场景爆炸：家庭/办公/工厂/物流/零售等多场景；政企项目覆盖多行业年产万小时级数据；轻量穿戴设备随人移动众包采集。",
+            "需求：端-边-云一体链路（本地接入、断点续传、加密回传）；场景通行证与分级授权审计；端到湖仓全链路数据质量可观测。",
+            "承接：ACK Edge 容器化纳管采集终端与机器人就近入网，海量边缘节点统一管理、密钥托管、TLS 回传中心。"
+          ],
+          "metrics": [
+            "回传：断点续传 + TLS",
+            "管理：海量边缘节点统一纳管"
+          ],
+          "image": "t01-45-00.png",
+          "hcs_insight": "具身落地强依赖边缘：HCS 应强化 CCE/IEF 边缘容器对机器人与采集终端的纳管、分级数据授权与断点续传中间件，满足工厂/园区专属云「场景即数据入口」合规与可靠性要求。"
+        },
+        {
+          "title": "托管 Argo：具身数据处理引擎与规模对比",
+          "details": [
+            "具身流水线：格式转换（DB3/lerobot/mcap）→ 多机多传感合并 → 批量标注 → Ray+DataJuicer 处理合成 → 训练与失败样本快回流。",
+            "相对开源自建：单工作流节点 3k→2万+；并发工作流 5k→5万+；总容量 1万→15万+；调度时延分钟级→<50ms；步间传输 ≤5GB→10GB+ 且分块上传约 5×。",
+            "关键能力：Git/OSS/EventBridge 事件驱动、ACS GPU 预留与故障卡隔离、弹性配额多租公平、托管 RayCluster、对接 OSS/NAS/CPFS/ARMS/SLS/RAM；实证日调度数十万工作流、百万核时级处理。"
+          ],
+          "metrics": [
+            "并发工作流：50,000+；调度时延：<50ms",
+            "相对开源自建：规模约 10×，资源成本约 -30%"
+          ],
+          "image": "t01-49-00.png",
+          "hcs_insight": "把托管工作流引擎的并发、调度时延与步间大数据传输作为 HCS 对标缺口清单；具身数据管道步骤多、文件大，开源自建 Argo 很容易在控制面与制品传递上打满，托管化是专属云可产品化的明确机会。"
+        }
+      ],
+      "summary_insights": [
+        "具身智能 Infra = 异构智算（含仿真卡）+ ACK 统一混部 + 托管 Argo/Ray 数据引擎 + 边缘回传，HCS 应按此整包对标而非零散卖 GPU。",
+        "智元/觅蜂模式证明采集洪峰与多场景边缘是主负载；弹性节点池、Serverless、断点续传与分级授权是专属云必须补齐的能力。",
+        "开源无绑定的一体化平台（数据格式、DataJuicer 算子、工作流）更利于政企落地；用万级并行 Pod 与 Argo 规模指标建立可验收的竞争对标。"
+      ]
+    }
+  ]
+}
