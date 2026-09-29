@@ -710,12 +710,12 @@ def build_from_talk(talk: dict, *, forum_root: Path, source_url: str, audience_n
     action_bits = []
     for s in summaries[:3]:
         rev = to_revelation(s)
-        if rev:
+        if rev and rev not in ("。", "；", "!"):
             action_bits.append(rev)
     if not action_bits:
         for tp in points[:3]:
             rev = to_revelation(clean(tp.get("competitor_insight") or tp.get("hcs_insight") or ""))
-            if rev:
+            if rev and rev not in ("。", "；"):
                 action_bits.append(rev)
     action_body = "；".join(b.rstrip("。；;") for b in action_bits if b)
     if action_body and not action_body.endswith(("。", "；")):
