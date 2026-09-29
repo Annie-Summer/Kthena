@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""生成原布局一页洞察 PPT：无顶/底黑底、无绿色填充，仅边框，强调色用暗红色。"""
+"""生成原布局洞察 PPT：无顶/底黑底、无绿色填充；灰色边框；暗红色仅用于文字强调；附数据截图佐证页。"""
 from __future__ import annotations
 
 from pathlib import Path
 
+from PIL import Image
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_SHAPE
@@ -14,16 +15,16 @@ from pptx.util import Inches, Pt
 
 ROOT = Path(__file__).resolve().parent
 OUT = ROOT / "docs"
+EVIDENCE = ROOT / "assets" / "evidence"
 ART = Path("/opt/cursor/artifacts/yunqi-docs")
 
-# 原布局浅底 + 暗红色强调（无黑底、无绿底）
 BG = RGBColor(0xF5, 0xF7, 0xF9)
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 DARK = RGBColor(0x1A, 0x1A, 0x1A)
 MID = RGBColor(0x4A, 0x4A, 0x4A)
 MUTED = RGBColor(0x6B, 0x6B, 0x6B)
 BORDER = RGBColor(0xD0, 0xD8, 0xDE)
-ACCENT = RGBColor(0x8B, 0x1A, 0x2B)  # 暗红色
+ACCENT = RGBColor(0x8B, 0x1A, 0x2B)
 FONT = "Microsoft YaHei"
 
 W = Inches(13.333)
@@ -87,8 +88,8 @@ def multilines(slide, x, y, w, h, lines, size=13, color=MID, spacing=4, bold_fir
     return box
 
 
-def build_one_pager(
-    filename: str,
+def add_insight_slide(
+    prs,
     eyebrow: str,
     insight: str,
     judgment: str,
@@ -98,26 +99,18 @@ def build_one_pager(
     source: str,
     metrics_title: str = "关键指标对比与提升",
 ):
-    prs = Presentation()
-    prs.slide_width = W
-    prs.slide_height = H
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-
-    # 页面浅底
     rect(slide, 0, 0, W, H, fill=BG)
 
-    # 顶部：无黑底、无暗红色边框
     header_h = Inches(1.15)
     rect(slide, 0, 0, W, header_h, fill=WHITE, line=None)
     textbox(slide, Inches(0.4), Inches(0.16), Inches(12.5), Inches(0.3), eyebrow, size=13, color=MUTED)
     textbox(slide, Inches(0.4), Inches(0.46), Inches(12.5), Inches(0.55), insight, size=22, bold=True, color=DARK)
 
-    # 一句话判断：白底 + 灰色边框
     jy = Inches(1.32)
     rect(slide, Inches(0.35), jy, Inches(12.6), Inches(0.55), fill=WHITE, line=BORDER, line_w=1)
     textbox(slide, Inches(0.5), jy + Inches(0.1), Inches(12.3), Inches(0.4), judgment, size=14, bold=True, color=DARK)
 
-    # 三栏卡片：白底灰边；暗红色仅用于标题文字
     cy = Inches(2.05)
     ch = Inches(2.85)
     cw = Inches(4.05)
@@ -126,25 +119,22 @@ def build_one_pager(
         x = Inches(0.35) + i * (cw + gap)
         rect(slide, x, cy, cw, ch, fill=WHITE, line=BORDER, line_w=1)
         textbox(slide, x + Inches(0.15), cy + Inches(0.15), cw - Inches(0.3), Inches(0.35), title, size=16, bold=True, color=ACCENT)
-        lines = [lead] + bullets
         multilines(
             slide,
             x + Inches(0.18),
             cy + Inches(0.55),
             cw - Inches(0.36),
             ch - Inches(0.7),
-            lines,
+            [lead] + bullets,
             size=13,
             color=MID,
             spacing=5,
             bold_first=True,
         )
 
-    # 指标区标题
     my = Inches(5.05)
     textbox(slide, Inches(0.35), my, Inches(8), Inches(0.28), metrics_title, size=14, bold=True, color=DARK)
 
-    # 指标卡：白底灰边；暗红色仅用于数值文字
     mw = Inches(2.02)
     mh = Inches(0.95)
     mg = Inches(0.12)
@@ -156,11 +146,83 @@ def build_one_pager(
         textbox(slide, x + Inches(0.16), y + Inches(0.28), mw - Inches(0.22), Inches(0.28), baseline, size=11, color=MID)
         textbox(slide, x + Inches(0.16), y + Inches(0.55), mw - Inches(0.22), Inches(0.32), value, size=18, bold=True, color=ACCENT)
 
-    # 底部：无黑底、无暗红色边框
     fy = Inches(6.55)
     rect(slide, 0, fy, W, H - fy, fill=WHITE, line=None)
     textbox(slide, Inches(0.4), fy + Inches(0.1), Inches(12.5), Inches(0.28), action, size=12, bold=True, color=DARK)
     textbox(slide, Inches(0.4), fy + Inches(0.42), Inches(12.5), Inches(0.28), source, size=10, color=MUTED)
+    return slide
+
+
+def add_evidence_slide(prs, eyebrow: str, items: list[tuple[str, str, str]]):
+    """items: (image_filename, highlight, caption)"""
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    rect(slide, 0, 0, W, H, fill=BG)
+    rect(slide, 0, 0, W, Inches(0.95), fill=WHITE, line=None)
+    textbox(slide, Inches(0.4), Inches(0.16), Inches(12.5), Inches(0.28), eyebrow, size=12, color=MUTED)
+    textbox(slide, Inches(0.4), Inches(0.42), Inches(12.5), Inches(0.4), "数据佐证｜官方回放截图", size=22, bold=True, color=DARK)
+
+    n = len(items)
+    gap = Inches(0.22)
+    margin = Inches(0.35)
+    usable = W - 2 * margin - gap * (n - 1)
+    cw = usable / n
+    ch = Inches(5.55)
+    cy = Inches(1.15)
+
+    for i, (img_name, highlight, caption) in enumerate(items):
+        x = margin + i * (cw + gap)
+        rect(slide, x, cy, cw, ch, fill=WHITE, line=BORDER, line_w=1)
+        textbox(slide, x + Inches(0.12), cy + Inches(0.1), cw - Inches(0.24), Inches(0.32), highlight, size=13, bold=True, color=ACCENT)
+
+        img_path = EVIDENCE / img_name
+        ix = x + Inches(0.12)
+        iy = cy + Inches(0.48)
+        iw = cw - Inches(0.24)
+        ih = Inches(4.2)
+        if img_path.exists():
+            with Image.open(img_path) as im:
+                aw, ah = im.size
+            scale = min(float(iw) / aw, float(ih) / ah)
+            dw = int(aw * scale)
+            dh = int(ah * scale)
+            ox = ix + (iw - dw) / 2
+            oy = iy + (ih - dh) / 2
+            slide.shapes.add_picture(str(img_path), int(ox), int(oy), width=dw, height=dh)
+        else:
+            textbox(slide, ix, iy, iw, Inches(0.4), f"[缺少截图: {img_name}]", size=12, color=ACCENT)
+
+        textbox(slide, x + Inches(0.12), cy + Inches(4.85), cw - Inches(0.24), Inches(0.55), caption, size=11, color=MID)
+
+    textbox(
+        slide,
+        Inches(0.4),
+        Inches(6.95),
+        Inches(12.5),
+        Inches(0.3),
+        "截图裁自云栖大会官方回放幻灯主体，作指标与结论佐证。",
+        size=10,
+        color=MUTED,
+    )
+    return slide
+
+
+def build_deck(
+    filename: str,
+    eyebrow: str,
+    insight: str,
+    judgment: str,
+    cards: list[tuple[str, str, list[str]]],
+    metrics: list[tuple[str, str, str]],
+    action: str,
+    source: str,
+    evidence: list[tuple[str, str, str]],
+    metrics_title: str = "关键指标对比与提升",
+):
+    prs = Presentation()
+    prs.slide_width = W
+    prs.slide_height = H
+    add_insight_slide(prs, eyebrow, insight, judgment, cards, metrics, action, source, metrics_title)
+    add_evidence_slide(prs, eyebrow, evidence)
 
     OUT.mkdir(parents=True, exist_ok=True)
     ART.mkdir(parents=True, exist_ok=True)
@@ -173,7 +235,7 @@ def build_one_pager(
 def main():
     outs = []
     outs.append(
-        build_one_pager(
+        build_deck(
             "洞察一页-04-KVCache推理基础设施.pptx",
             "04 · 王正恒 / 徐国强 · KVCache：从显存优化到软硬结合的推理基础设施",
             "洞察：KVCache 已从框架技巧，升级为可调度的推理基础设施",
@@ -220,10 +282,15 @@ def main():
             ],
             "可落地动作：把命中率 / TTFT / $/Token 写入平台 SLO；用 workload 仿真选型 CXL/SSD/EBoF；打通 KVCM 与引擎路由。",
             "*为演讲幻灯宣称口径  ·  来源：云栖大会 agendaId=164 · Talk 04 王正恒 / 徐国强",
+            [
+                ("04-mempool-metrics.png", "吞吐 +50%+ · TTFT -30% · 传输 93%+", "Tair Memory Pool 客户场景实测（回放截图）"),
+                ("04-tier-table.png", "G1–G4 分层带宽/时延/容量表", "KVCache 分层存储定义与技术方向"),
+                ("04-storage-needs.png", "介质五需求 · Token TCO 可测降幅", "KVCache 对存储介质的关键诉求"),
+            ],
         )
     )
     outs.append(
-        build_one_pager(
+        build_deck(
             "洞察一页-07-AI推理全栈优化实战.pptx",
             "07 · 资彦义 / 李陈浩文 · Agentic 时代 AI 推理软硬件结合全栈优化实战",
             "洞察：全栈优化三件套 —— Agentic KV · Mega Kernel · Kernel Agent",
@@ -270,10 +337,15 @@ def main():
             ],
             "可落地动作：工程化 Dev Loop（Trace+回归）；KV 调度接入会话状态并与池化联动；多芯导入优先建 Kernel Agent+评测集。",
             "来源：云栖大会 agendaId=164 · Talk 07 资彦义 / 李陈浩文",
+            [
+                ("07-kernel-agent-488.png", "9.52ms → 1.95ms · 约 4.88×", "Kernel Agent 并行探索与经验回写案例"),
+                ("07-ppu-ops.png", "小算子融合链加速（PPU）", "相对开源框架基线的实测对比"),
+                ("07-multi-hw-migrate.png", "AMD 1.6× / PPU 1.56–2.13×", "多硬件迁移与平台适配收益"),
+            ],
         )
     )
     outs.append(
-        build_one_pager(
+        build_deck(
             "洞察一页-08-未来大模型推理架构.pptx",
             "08 · 李文韬 · 未来大模型推理的软硬件结合系统架构探索",
             "洞察：先拆分，再堆料；先仿真，再到柜",
@@ -320,10 +392,15 @@ def main():
             ],
             "可落地动作：并行推进拆分架构与仿真器；跟踪 HiSim/AFD 开源合入；用业务模型先跑配比，再定超节点与 A/F 采购。",
             "来源：云栖大会 agendaId=164 · Talk 08 李文韬  ·  与 Talk04/06/07 形成「分层 + 超节点 + 全栈 + 拆分」闭环",
+            [
+                ("08-model-hw-trend.png", "长上下文 / MoE 稀激活 vs 单卡资源", "模型与硬件趋势错配证据"),
+                ("08-pd-afd.png", "P/D + AFD 可组合拆分", "从架构拆分到硬件分离"),
+                ("08-hisim-96.png", "Hisim 整体准确率 96%+", "震旦 Insight 无实物仿真佐证"),
+            ],
         )
     )
     outs.append(
-        build_one_pager(
+        build_deck(
             "洞察一页-Agentic-AI-Infra.pptx",
             "2026 云栖大会 · Agentic AI 算力与存储论坛",
             "洞察：瓶颈已从「堆卡」转向「拆分 · 分层 · 卸载 · 平台化」",
@@ -370,6 +447,11 @@ def main():
             ],
             "近半年可落地：KV 分层与价值调度 · 运维评测床 · Profiler Dev Loop · 安全八项清单",
             "中远期：CXL/SCM 与超节点功率规划 · Kernel Agent 多芯供给 · P/D+AFD 拆分（先仿真再到柜）  |  来源：云栖大会 agendaId=164 八场技术分享综合",
+            [
+                ("00-aiops-91.png", "工单时长 5.5h → 0.47h · -91%", "Infini-AIOps 实测曲线"),
+                ("04-mempool-metrics.png", "KV 吞吐 +50%+ · TTFT -30%", "Tair Memory Pool 场景实测"),
+                ("07-kernel-agent-488.png", "Kernel Agent 约 4.88×", "跨芯算子供给加速案例"),
+            ],
             metrics_title="关键指标对比（可直接做对比页）",
         )
     )
