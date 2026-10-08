@@ -32,3 +32,4 @@
   - 洞察写「获得什么启示」，不写内部规划动作；一句话判断只保留公司/产品与影响
   - `python3 generate_insight_ppt.py --forum agenda201`
   - 产出：`docs/洞察一页-XX-*.pptx`，裁图：`assets/evidence/`
+- `generate_insight_ppt_08_rednote.py`：Talk 08（ACK × 小红书）手写版——Cost/Token 主线，2 页洞察 + 佐证页
