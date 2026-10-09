@@ -1,0 +1,106 @@
+{
+  "video_duration_sec": 14370,
+  "probe_interval_sec": 180,
+  "talks": [
+    {
+      "id": "01",
+      "folder": "01-yangxu-agent-infra",
+      "speaker": "杨旭",
+      "title": "企业级大规模 Agent Infra 解决方案最佳实践",
+      "start_sec": 0,
+      "end_sec": 1260,
+      "key_shots": [60, 240, 360, 420, 600, 720, 780, 900, 960, 1080, 1140, 1200],
+      "notes": "Title slide ~30s (杨旭 / 资深解决方案架构师). Covers Agent 形态演进 (ToB/C/D)、Infra 四大挑战、Agent Sandbox 架构 (极速版/容器版)、生产级硬指标 (百万级/P99)、AgentLoop 可观测、Skills/MCP/Code Interpreter/Browser、MiniMax/Z.AI 实践案例。Speaker: black polo, no glasses (early shots). Hand-off at 1260 to 洪晓龙 title."
+    },
+    {
+      "id": "02",
+      "folder": "02-hongxiaolong-luozirong-agent-rl-eval",
+      "speaker": "洪晓龙 / 罗自荣",
+      "title": "Agent Sandbox 加速训练与评测闭环与百炼 Agent RL/Eval 规模化实践",
+      "start_sec": 1260,
+      "end_sec": 2910,
+      "key_shots": [1260, 1320, 1500, 1680, 1860, 2040, 2220, 2400, 2580, 2700, 2760, 2820],
+      "notes": "洪晓龙 title at 1260 (Agent Sandbox 加速训练与评测闭环 / 百炼 Agent RL·Eval). Content: RL vs Eval 概念、任务环境 (SWE-bench/OSWorld)、Sandbox 产品化、百炼 RL Loop Engineering. 罗自荣 title at 2040 (多租户 Agentic RL 训练平台). Then How-to 02/08、网络架构 04/08、监控观测 05/08、评测闭环 07/08、Roadmap 08/08 (~2820). Transition blank ~2880. Ends at 卢萌凯 intro 2910."
+    },
+    {
+      "id": "03",
+      "folder": "03-lumengkai-yanlong-agent-sandbox",
+      "speaker": "卢萌凯 / 严龙",
+      "title": "驾驭百万级 Agent：Agent Sandbox 核心能力与千问办公生产级实践",
+      "start_sec": 2910,
+      "end_sec": 4410,
+      "key_shots": [2940, 3000, 3120, 3240, 3300, 3480, 3660, 3840, 3900, 4020, 4200, 4380],
+      "notes": "卢萌凯 intro portrait ~2910. Core Sandbox: Controlled Computer / 云上超级计算机、极速版架构 (E2B/MicroVM)、安全隔离、大规模并发性能 (10万/分、冷启<180ms). 严龙 intro ~3660 (千问办公技术专家). 千问办公实践: 五条硬要求、启动加速预热池、AgenticFS 状态持久、四项在途优化. Hand-off 华相 intro ~4410."
+    },
+    {
+      "id": "04",
+      "folder": "04-huaxiang-ack-data-flywheel",
+      "speaker": "华相",
+      "title": "加速数据价值流转：以 ACK 为底座的开放产线与数据飞轮",
+      "start_sec": 4410,
+      "end_sec": 5070,
+      "key_shots": [4410, 4440, 4500, 4560, 4740, 4800, 4920, 5040],
+      "notes": "华相 intro portrait ~4410; title slide ~4440. Speaker: bald, glasses, black polo. Content: 数据闭环工作流 (采-标-训-仿真 SIL/HIL/DIL/VIL)、为何需要工作流引擎、全托管 Argo Workflow 集群优势 (2万子任务/工作流、5万并行)、Ray on ACK (10K 容器/30s、3万 Ray Clusters). Ends at 赵堃 intro ~5070."
+    },
+    {
+      "id": "05",
+      "folder": "05-zhaokun-yinxin-embodied-ai",
+      "speaker": "赵堃 / 尹欣",
+      "title": "构建敏捷基础设施，助力具身智能加速业务创新（智元）",
+      "start_sec": 5070,
+      "end_sec": 6690,
+      "key_shots": [5160, 5280, 5400, 5460, 5640, 5820, 6000, 6180, 6300, 6360, 6540],
+      "notes": "赵堃 intro ~5070 (阿里云高级产品解决方案架构师). Trends VLA→WAM / Cross-Embodiment / Real2Sim2Real; 阿里云具身智能基础设施 (ACK Pro/ACS、Argo、Ray+DataJuicer、Loongkit、APAK); Loongkit OS 级训推加速 (+52% π0). Partner case 觅蜂科技 Maniformer (~5820+): MeGo view/gripper、敏捷弹性 (1.6万并行 Pod)、边缘到中心 ACK Edge. Argo 具身数据处理引擎 wrap ~6540. Session-title interlude ~6600–6660 before Talk 6."
+    },
+    {
+      "id": "06",
+      "folder": "06-zhangkai-yaozheng-shengshu",
+      "speaker": "张凯 / 姚峥",
+      "title": "容器智算底座助力生数科技多模态 AI 业务稳省快",
+      "start_sec": 6690,
+      "end_sec": 8970,
+      "key_shots": [6720, 6900, 7080, 7260, 7440, 7620, 7800, 8160, 8340, 8520, 8700, 8880],
+      "notes": "张凯 intro ~6690; title ~6720 (容器智算底座助力 AI 业务稳省快). ACK 真武 M890 拓扑/DRA/自愈; ACK AI 推理套件+真武推理优化 (PD 分离、~3x 吞吐); Goodput; LLM 冷启 220s→63s / 吞吐最高 2.69x; FlashGPU 多模型热切换 (166–413x); Agentic RL on ACK 全流程. 生数科技伙伴段 ~7940 (生数×阿里云 title); 姚峥 (blue tee) covers 训推调度架构、挑战、弹性 ACK Pro、ACK One Fleet 多集群、未来规划展望 ~8880. Hand-off 沈健 title ~8970."
+    },
+    {
+      "id": "07",
+      "folder": "07-shenjian-spacetime-infra",
+      "speaker": "沈健",
+      "title": "时空智能 Infra：构建感-算-决一体化技术架构（洞察时空）",
+      "start_sec": 8970,
+      "end_sec": 10170,
+      "key_shots": [8970, 9000, 9060, 9240, 9300, 9420, 9600, 9780, 9900, 9960, 10080],
+      "notes": "Title ~8970–9000 (洞察时空副总裁、平台技术负责人). LLM→物理世界模型; 卫星数据作物理世界对齐反馈; 卫星数据指数增长 (10PB→300PB); 大模型工程挑战 (成本/规模/性能); 基于 ACK 的技术栈; 数算一体 AI 星座 (2/168/576); 应用场景 (气象/新能源功率/电力现货); 开放生态 (API/MCP/Agent). Hand-off 车漾 intro ~10170."
+    },
+    {
+      "id": "08",
+      "folder": "08-cheyang-xiongfeng-xiaohongshu",
+      "speaker": "车漾 / 熊峰",
+      "title": "容器服务携手小红书打造大模型推理和 Agent RL 生产级实践",
+      "start_sec": 10170,
+      "end_sec": 12240,
+      "key_shots": [10200, 10320, 10500, 10680, 10860, 11040, 11220, 11400, 11580, 11760, 11940, 12120],
+      "notes": "车漾 intro ~10170; title ~10200. Day1 Cost/Token; ACK 推理网关 (Load/Cache-aware, TTFT -75%); Fluid ModelScale / Mooncake / FlashGPU 权重秒级就绪; InferenceKit NUMA/PPU ICN64; Agentic RL on ACK. 熊峰 intro ~11010 (小红书云原生编排与 Agent Sandbox Infra). 小红书实践: LLM 部署形态演进→静态 PD (GroupSet/PodGroup)→原地升级预热→RBG 多角色编排→跨角色协同策略→Agent Native / Sandbox 架构→RL 快照复用与 Rollout 托管. 谢谢 ~12210. Hand-off 胡光 intro ~12240."
+    },
+    {
+      "id": "09",
+      "folder": "09-huguang-ack-agent",
+      "speaker": "胡光",
+      "title": "智能体自治时代，容器服务 Agent 服务全场景最佳实践",
+      "start_sec": 12240,
+      "end_sec": 13320,
+      "key_shots": [12270, 12480, 12540, 12660, 12840, 12900, 13020, 13200, 13260],
+      "notes": "胡光 intro ~12240; title ~12270 (高级产品专家). 容器服务 Agent 自主智能运维架构 (ACK MCP、Skills、多智能体); PLAN/SENSE/THINK/ACT; 能力全景 (ack-mcp-server、知识库、AI Profiling); 钉钉闭环案例 (1m42s); SWE-bench/RL Skill 扩展保障 (2min 定位/5min 恢复); 总结指标 (>80% 客户使用、>85% 诊断准确率). 谢谢 ~13290. Hand-off 张栋 ~13320."
+    },
+    {
+      "id": "10",
+      "folder": "10-zhangdong-langxin-agent",
+      "speaker": "张栋",
+      "title": "朗新 AI 时代生产力：基于 Agent Sandbox 的云端 Agent 平台",
+      "start_sec": 13320,
+      "end_sec": 14370,
+      "key_shots": [13340, 13440, 13560, 13620, 13740, 13920, 14040, 14100, 14280],
+      "notes": "张栋 on stage ~13320; title ~13340 (朗新科技集团 · AI4SE 负责人). 九功数字分身重构生产关系; 技术架构 (Agent Sandbox→运行时→分身资产/执行→企业应用, MCP); 云端研发交付与资产沉淀; 云端与本地协同架构 (Pilot/Pod Runtime); Demo 流程 (数字分身→自动完成→需求开发); Agent Sandbox 运行实践指标 (100+ 常驻 / 200+ 动态唤起). Video ends ~14370; session branding returns near end."
+    }
+  ]
+}

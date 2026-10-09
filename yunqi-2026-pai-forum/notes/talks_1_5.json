@@ -1,0 +1,533 @@
+{
+  "talks": [
+    {
+      "id": "01",
+      "folder": "01-zhou-agentic-infra",
+      "title": "从算力到智能体：Agentic Infrastructure",
+      "speaker": "周文超",
+      "org": "阿里云智能集团 · PAI",
+      "overview": "本演讲系统阐述 Agentic AI 如何重写 AI 基础设施：负载从问答变为全天自主 Agent，范式从预训练主导走向 Pre/Post/Test-time 并重并以 RL 定制模型，边界从数字世界延伸到物理世界。围绕 PAI-DLC 3.0、PAI-InferX、物理 AI 套件（EgoX/RoboX/TurboX）以及 CrystalLLM 与 PAI-RLS，给出训练、推理、持续进化的产品化路径，并强调全系算力底座对 M890P 的支持。",
+      "tech_points": [
+        {
+          "title": "Agentic AI 三重变化：负载、范式、边界",
+          "details": [
+            "负载：单次会话变成长跑，Agent 推理调用量达人类数百倍，长上下文与多轮工具调用成常态；KV Cache 从缓存升为核心资产，无状态网关失灵，SLO 需按会话重写",
+            "范式：从预训练主导转向 Pre-training / Post-training / Test-time 三阶段并重，RL 成为模型定制主路径；训练系统需支持 Rollout、Env、Reward 多角色协同",
+            "边界：智能进入物理世界，具身智能与智驾规模落地；数据扩展至视频、点云、力控信号，数据链路必须工业化"
+          ],
+          "metrics": [
+            "Agent 推理调用量约为人类数百倍"
+          ],
+          "image": "t00-03-00.png",
+          "competitor_insight": "友商需把「会话级状态与 KV 资产」纳入推理网关设计，并补齐 Rollout/Env/Reward 多角色训练编排，而不是只堆单卡吞吐。"
+        },
+        {
+          "title": "AI 基础设施四维升级：算力买得到 ≠ 用得好",
+          "details": [
+            "算力：从单卡单机堆叠 → 超节点 64 卡域内互联 + 多级拓扑万卡亲和",
+            "网络与存储：从比特宽峰值 → 数据供给确定性（读缓存、跨机 RDMA、P2P 分发）",
+            "运行时：从单一训练任务调度 → Rollout/Train/Eval/Env 解耦与异步协同",
+            "服务：从无状态网关 + QPS → 有状态记忆中枢（KV Cache 复用 + 会话级 SLO）"
+          ],
+          "metrics": [
+            "64 卡超节点域内互联",
+            "万卡多级拓扑亲和"
+          ],
+          "image": "t00-09-00.png",
+          "competitor_insight": "平台竞争力应从「卡时售卖」转向算力-网络-存储-框架-服务的精密系统工程；优先补拓扑亲和调度与会话级 SLO。"
+        },
+        {
+          "title": "PAI-DLC 3.0：万卡训练精密系统工程",
+          "details": [
+            "算力与网络：原生 64 卡超节点，HPN8.0/CIPU2.0，多级拓扑万卡互联、亲和组调度、超节点可观测与大规模容错",
+            "数据供给：机内/分布式读缓存，跨机 RDMA，吞吐随节点规模线性扩展，P2P 高并发加载分发",
+            "训练加速 TurboX：全栈加速引擎，免改代码释放算力/通信/数据全链路性能",
+            "智能诊断 Xfuse：基础设施+框架+任务三层洞察，结合基模经验与 Agent 能力自动定位根因"
+          ],
+          "metrics": [
+            "64 卡原生超节点",
+            "预热缓存加速 3x",
+            "远程数据加载加速 15%~35%",
+            "模型吞吐提升 3.24x",
+            "智驾模型端到端加速 2~2.4x"
+          ],
+          "image": "t00-11-00.png",
+          "competitor_insight": "训练平台应产品化「读缓存+RDMA+P2P」数据供给与无侵入加速层，并用 Agent 化诊断降低万卡故障定位成本。"
+        },
+        {
+          "title": "PAI-InferX：面向 Agent 的高保障 SLO 推理",
+          "details": [
+            "六大能力：LLM 智能路由、流量高效调度（Session 亲和/Cache 前缀/PD 分离）、KV Cache 记忆中枢、引擎深度优化、模型预热缓存、用户 Token 管理",
+            "基于 PAI-EAS：异构算力、VPC RDMA、弹性扩缩、Spot、训推合池混部",
+            "学术底座引用 SOSP/OSDI/NSDI 等工作，强调企业定制模型也要能稳定用起来"
+          ],
+          "metrics": [
+            "KV Cache 命中率提升约 35%（20%~50%）",
+            "TTFT 下降约 40%（30%~50%）",
+            "吞吐提升约 55%（30%~80%）",
+            "冷启动降至分钟级、扩容加载快至秒级"
+          ],
+          "image": "t00-13-00.png",
+          "competitor_insight": "推理产品必须把 Session 亲和与分布式 KV 复用做成默认能力，并对外暴露命中率/TTFT/会话 SLO 等 Agent 友好指标。"
+        },
+        {
+          "title": "物理 AI 三件套：EgoX · RoboX · TurboX",
+          "details": [
+            "数据墙→PAI-EgoX：第一人称数据流水线，单目/双目/多视角，VIPE/VITRA 双管线产出姿态/手部/语义标注与 LeRobot 数据集",
+            "算法墙→PAI-RoboX：开放训练框架，算法中立、跨本体复用；支持 VLM/世界模型可插拔 Action Head，覆盖 SFT、共训、RL（PPO/GRPO）",
+            "算力墙→PAI-TurboX：无侵入加速，数据预取、RDL/NUMA 亲和、图优化、算子融合、BF16/TF32、异步 EMA"
+          ],
+          "metrics": [
+            "多场景并行仿真评测中部分任务成功率可达 100%（如 PushOfficeChair、XMoveBendPick）"
+          ],
+          "image": "t00-15-00.png",
+          "competitor_insight": "具身智能平台应打通「工业级数据产线→跨本体训练框架→无侵入加速」，把仿真评测与真实反馈纳入同一生产闭环。"
+        },
+        {
+          "title": "PAI-CrystalLLM：低成本仿真万卡训练试错场",
+          "details": [
+            "不改代码：现有 Megatron-LM 脚本原样跑；两台机器起步（1 sandbox + 1 assistant）即可仿真万卡",
+            "方法：先建执行图（分片轮转复用 GPU 校准全周图），再混合仿真（关注 rank 跑真程序、其余按图回放，虚实 rank 真实通信）",
+            "用途：配置调优、MoE 均衡避 OOM、集群体检（过热降频）、画像调试、假 kernel 前置评估收益"
+          ],
+          "metrics": [
+            "迭代时间预测误差 0.58%（最大 1.98%）",
+            "峰值显存误差 <0.01% 且可复现 OOM",
+            "仿真规模 8192 卡（32 台机器）",
+            "资源节省约 97%",
+            "MFU 绝对提升 +2~10%",
+            "验证覆盖 MoE 235B/503B/1.01T"
+          ],
+          "image": "t00-19-00.png",
+          "competitor_insight": "应提供「风洞式」万卡仿真能力，让并行策略与显存配置先低成本验证，再上真实集群，显著降低试错 GPU-h。"
+        },
+        {
+          "title": "PAI-RLS：Agentic RL 任务与 AI 资源配置",
+          "details": [
+            "面向 Agentic/RLHF 任务的可视化编排：分离配置 Rollout GPU、Train GPU、Env CPU",
+            "支持 GRPO 等算法与大基模（演示任务 customer-agent-rlhf、基模 Qwen2-32B）",
+            "AI 资源分析：按模型规模、算法类型、训练配置自动推荐资源配置并一键采纳提交"
+          ],
+          "metrics": [
+            "演示配置：Max Length 10 轮",
+            "每轮 Trajectory 20000"
+          ],
+          "image": "t00-21-00.png",
+          "competitor_insight": "后训练产品要把 Rollout/Train/Env 异构资源拆分配置，并用 AI 推荐降低 RL 任务上线门槛。"
+        }
+      ],
+      "summary_insights": [
+        "下一代 AI 基础设施应从「堆卡」转向算力/网络/存储/框架/服务精密协同，以会话级状态与 KV 资产为核心。",
+        "训练侧需产品化超节点亲和、确定性数据供给、无侵入加速与万卡仿真试错；推理侧需 Session 亲和与分布式 KV。",
+        "物理 AI 与持续进化（CrystalLLM + PAI-RLS）标志着平台边界从数字世界延伸到具身与 RL 闭环，友商应补齐数据产线与多角色 RL 编排。"
+      ]
+    },
+    {
+      "id": "02",
+      "folder": "02-huang-platform",
+      "title": "云原生 AI 的下一站：Agentic AI Platform",
+      "speaker": "黄博远",
+      "org": "阿里云智能集团计算平台事业部 · 人工智能平台 PAI 产品负责人",
+      "overview": "演讲主张 AI 基础设施要从「提供功能」走向「交付结果」。针对万卡训练配置-运行-诊断-验证的高成本闭环，提出 Agentic PAI：通过重复劳动自动化、专家知识普惠化、智慧成果资产化、定制能力标准化四阶段，把平台能力转化为企业组织能力，并以 CLI/MCP/Skills 对 Agent 开放，同时提供评测-微调-蒸馏的模型侧优化闭环。",
+      "tech_points": [
+        {
+          "title": "传统平台交互难以承载万卡工程复杂度",
+          "details": [
+            "万卡级训练从「能跑」到「跑稳跑快」需反复经历配置方案、规模运行、诊断定位、调整验证",
+            "并行策略组合空间巨大，千节点才暴露问题，日志指标分散，关键调整需回目标规模验证、失败代价高",
+            "PaaS 只提供算力与工具时，用户仍需手工组织整个调优闭环"
+          ],
+          "metrics": [
+            "示例规模：1 万卡 × 10 小时 = 10 万 GPU-h/轮尝试"
+          ],
+          "image": "t00-27-00.png",
+          "competitor_insight": "仅卖算力与控制台不够；平台需用 Agent 自动闭环配置/诊断/验证，否则万卡客户会卡在人工运维成本上。"
+        },
+        {
+          "title": "平台能力四阶段：从完成任务到形成组织能力",
+          "details": [
+            "重复劳动自动化：跨产品跨地域批量与周期任务可自动完成",
+            "专家知识普惠化：诊断方法、资源判断与处置经验可按需调用",
+            "智慧成果资产化：验证过的配置、流程与性能证据可持续复用",
+            "定制能力标准化：企业自有流程与专家经验沉淀为可开放调用的标准能力"
+          ],
+          "metrics": [],
+          "image": "t00-29-00.png",
+          "competitor_insight": "产品路线图应按「自动化→专家 Skill→资产沉淀→标准化开放」递进建设，否则 Agent 平台只是聊天外壳。"
+        },
+        {
+          "title": "重复劳动自动化：批量实验创建/调度/跟踪",
+          "details": [
+            "自然语言意图驱动：克隆基线任务并展开学习率×batch 参数组合实验",
+            "四项自动化：复用基线配置、批量展开实验、按资源条件轮询执行、集中跟踪结果/日志/产出",
+            "具身智能训练场景演示：继承镜像、代码版本、启动命令与数据挂载，仅变更实验参数"
+          ],
+          "metrics": [
+            "1 基线克隆出 6 组实验",
+            "每组 8 卡",
+            "最大并发 2 组",
+            "资源空闲巡检间隔约 30 分钟"
+          ],
+          "image": "t00-31-00.png",
+          "competitor_insight": "训练平台应支持意图级「参数扫掠 + 并发配额 + 结果聚合」，减少研究员手工填表与重提任务。"
+        },
+        {
+          "title": "专家知识普惠化：CrystalLLM / 诊断 / TurboX Skills",
+          "details": [
+            "训练前评估 CrystalLLM Skill：两阶段高保真建图+混合仿真，评估重计算/offload/P2P overlap、迭代时间与 OOM 风险",
+            "运行中专家任务诊断 Skill：采集证据→关联异常→形成判断与处置建议",
+            "TurboX Skill：数据/编译/精度/调度/算子/存储六类无侵入优化，专家方法直接抵达任务现场"
+          ],
+          "metrics": [
+            "迭代时间平均误差 0.58%",
+            "峰值显存误差 <0.01%",
+            "PAI PPU 单节点吞吐 +53%、双节点 +29%",
+            "Sparse4D：单节点 88.89→136.17 samples/s，双节点 196.92→253.47 samples/s"
+          ],
+          "image": "t00-33-00.png",
+          "competitor_insight": "把仿真评估、在线诊断、性能调优封装成可被 Agent 调用的 Skills，是差异化关键；指标误差需做到可量化可信。"
+        },
+        {
+          "title": "智慧成果资产化：看板与模板可留存复用",
+          "details": [
+            "五步闭环：生成调整看板→保存看板（执行记录/诊断证据/对比结论）→保存模板（GPU 利用率、MFU 等）→回看历史→新任务复用",
+            "支持单任务诊断与多任务对比报告，沉淀 A2UI 场景模板",
+            "目标是让一次调优成果成为组织资产而非一次性聊天记录"
+          ],
+          "metrics": [
+            "关注指标含 GPU Utilization、MFU、任务健康分"
+          ],
+          "image": "t00-37-00.png",
+          "competitor_insight": "Agent 产出必须可保存为可版本化的看板/模板，否则经验无法规模化复用；应支持多任务对比与指标卡复用。"
+        },
+        {
+          "title": "定制能力标准化：PAI CLI · MCP · Skills 开放",
+          "details": [
+            "CLI：YAML/JSON 批量提交、DSW 声明式配置、--dry-run、稳定 JSON/YAML 输出与退出码，便于 Agent 编排",
+            "MCP：通过 Model Context Protocol 暴露 PAI OpenAPI，支持 Agent 发现 API、鉴权、查询与筛选",
+            "Skills：按需装载专家方法（如资源巡检：查占用、发现空闲/异常节点、生成巡检报告）"
+          ],
+          "metrics": [
+            "案例：230 个工作空间收敛管理为 13 个托管空间"
+          ],
+          "image": "t00-39-00.png",
+          "competitor_insight": "必须同时提供人用 CLI 与 Agent 用 MCP/Skills；输出结构化、可 dry-run、可组合调用，才是真正的 Agentic 平台开放面。"
+        },
+        {
+          "title": "模型侧优化：评测 · 微调 · 蒸馏闭环",
+          "details": [
+            "评测：单模/多模对比、LLM-as-a-Judge、业务数据验证，定位候选模型在业务任务上的真实表现",
+            "微调：覆盖 SFT/DPO/CPT/RL，支持全参/LoRA/QLoRA，内置算法与超参推荐",
+            "蒸馏：教师选择→数据构建→学生训练；支持 MaaS/EAS 多教师与 Instruction/CoT/多模态/Agent 蒸馏模板",
+            "闭环：评测确认→选路径→微调/蒸馏→新版本→再评测"
+          ],
+          "metrics": [],
+          "image": "t00-41-00.png",
+          "competitor_insight": "Agent 平台需内置「效果瓶颈来自模型时」的评测-优化路径，尤其提供 Agent 蒸馏与成本/延迟导向的学生模型生产能力。"
+        }
+      ],
+      "summary_insights": [
+        "Agentic AI Platform 的核心不是聊天 UI，而是把万卡工程闭环与专家方法产品化为可调用 Skills。",
+        "开放面应覆盖 CLI + MCP + Skills，并保证结构化输出与安全 dry-run，便于企业 Agent 组合调用。",
+        "成果资产化与模型评测/微调/蒸馏闭环，是把「完成一次任务」升级为「形成组织能力」的关键。"
+      ]
+    },
+    {
+      "id": "03",
+      "folder": "03-zhai-posttrain",
+      "title": "大模型后训练框架：从 LLM 到 VLA 的多模态扩展与实践",
+      "speaker": "翟恩南",
+      "org": "阿里云智能集团资深技术专家",
+      "overview": "演讲指出模型竞争已进入「后训练系统能力」时代，关键变量从单次训练规模转向反馈闭环的速度、质量与可靠性。沿着 LLM→Agent→VLA 演进，把 RL 引擎定义为连接算法、模型、环境与算力的「反馈操作系统」，并给出全异步流水线、版本边界、轨迹工厂、可观测回放以及 VLA 三重挑战的系统解法。",
+      "tech_points": [
+        {
+          "title": "后训练系统能力时代：反馈闭环决定竞争力",
+          "details": [
+            "预训练决定知识底座，后训练决定模型能否真正完成任务，持续反馈让模型学会行动与适应",
+            "竞争关键从「单次训练规模」转向「反馈闭环的速度、质量与可靠性」"
+          ],
+          "metrics": [],
+          "image": "t00-46-00.png",
+          "competitor_insight": "评估后训练产品时，应看闭环迭代吞吐与稳定性，而非仅看单次 SFT/RL 任务能否跑通。"
+        },
+        {
+          "title": "能力演进：LLM → Agent → VLA",
+          "details": [
+            "LLM：文本输入→生成答案，反馈为偏好/正确性",
+            "Agent：任务+工具→多轮决策，反馈为环境执行结果",
+            "VLA：视觉+状态→动作序列，反馈为物理世界反馈"
+          ],
+          "metrics": [],
+          "image": "t00-48-00.png",
+          "competitor_insight": "后训练框架接口需统一覆盖文本偏好、环境执行结果与物理反馈三类信号，避免为 VLA 另起一套不可复用系统。"
+        },
+        {
+          "title": "RL 引擎：反馈操作系统分层架构",
+          "details": [
+            "算法层：PPO / GRPO / GSPO / 自定义 Reward",
+            "RL 引擎含调度层（调度、Rollout、Buffer、权重同步、容错）与运行时（训练框架、推理引擎、Agent 环境）",
+            "算力层：GPU / PPU / CPU / 网络 / 存储",
+            "价值：算法只描述「学什么」，系统负责「如何高效稳定地学」"
+          ],
+          "metrics": [],
+          "image": "t00-52-00.png",
+          "competitor_insight": "应把 Rollout/Buffer/权重同步/容错沉淀为中间件，避免算法脚本与集群环境强绑定导致每次换模/换环境都重装系统。"
+        },
+        {
+          "title": "RL 五段挑战与应对：调度到稳定性",
+          "details": [
+            "调度：轨迹长短不一导致空转 → 版本感知全局调度 + 动态配比",
+            "Rollout：推理与环境交互长尾易阻塞 → 训推分离 + chunk 调度 + Agent Worker",
+            "Reward：自定义接入难、评测可能泄漏 → 插件化服务 + Rollout/Eval 隔离 + Replay",
+            "策略更新：样本陈旧与显存压力并存 → 版本边界 + 并行/Offload/重算组合",
+            "稳定性：跨角色跨节点难定位 → 角色感知 Hang + 全链路 Trace"
+          ],
+          "metrics": [],
+          "image": "t00-56-00.png",
+          "competitor_insight": "RL 平台验收清单应包含：动态资源配比、chunk 调度、Eval 隔离、版本边界与角色级 Hang 诊断，缺一即难规模化。"
+        },
+        {
+          "title": "突破一：全异步流水线打破「阶段墙」",
+          "details": [
+            "同步架构：Rollout 与 Training 串行，硬屏障导致 GPU 阶段性空转",
+            "全异步架构：部分 GPU 专责 Rollout、部分专责 Training，轨迹持续送训、参数持续回传",
+            "目标是让数据流与权重同步连续流动，最大化硬件利用率"
+          ],
+          "metrics": [],
+          "image": "t01-00-00.png",
+          "competitor_insight": "Agent/RL 训练应默认支持训推资源池分离与异步流水，同步屏障会在长轨迹场景下严重浪费算力。"
+        },
+        {
+          "title": "异步可控：版本边界与 Chunk 调度",
+          "details": [
+            "用 max_version_diff 管理样本陈旧度：窗口内可接受，越界则阻塞或丢弃",
+            "版本差=0 退化为同步，=1 为 one-step-off，更大窗口换取更高并行度",
+            "Chunk 调度：把长轨迹切成可调度单元，优先回收已完成结果，削弱尾部拖累"
+          ],
+          "metrics": [
+            "控制参数：max_version_diff"
+          ],
+          "image": "t01-02-00.png",
+          "competitor_insight": "异步系统必须暴露可调的版本窗口与 chunk 粒度，让用户在稳定性与吞吐之间做显式权衡。"
+        },
+        {
+          "title": "突破二：Rollout 轨迹工厂与 VLA 三重挑战",
+          "details": [
+            "轨迹工厂：Suite（模型+Agent+数据集+运行时）→任务展开为独立 Job→Agent Worker 多轮工具/沙箱→产出 token/tool/state/patch→Eval/Reward 隔离回流",
+            "难点：单条 Agent 轨迹可持续 30 分钟~2 小时，跨越代码/浏览器/终端/外部服务",
+            "解法：K8s 隔离、声明式编排、轨迹实时同步、评测与 Rollout 物理分离",
+            "VLA 挑战：多模态时序对齐与显存波动、CPU 仿真与 GPU/PPU 异构协同、真实环境长尾故障需把环境纳入系统调度"
+          ],
+          "metrics": [
+            "单条轨迹时长约 30 分钟~2 小时"
+          ],
+          "image": "t01-04-00.png",
+          "competitor_insight": "把长时 Agent/VLA Rollout 做成可隔离、可同步、可评测分离的「轨迹工厂」，是后训练规模化的必要基础设施。"
+        }
+      ],
+      "summary_insights": [
+        "后训练竞争力在于反馈操作系统：异步流水、版本边界、轨迹工厂与全链路可观测。",
+        "从 LLM 到 VLA，环境与异构资源必须进入调度内核，而不是当作额外数据类型。",
+        "友商应优先建设训推分离、Eval 隔离与角色级诊断，才能支撑长轨迹 Agent 与物理反馈闭环。"
+      ]
+    },
+    {
+      "id": "04",
+      "folder": "04-zhang-autoforch",
+      "title": "无尽前延：科学后训练（Auto-Research / Science4AI）",
+      "speaker": "张林峰",
+      "org": "无尽前延（Endless Frontier）",
+      "overview": "演讲从 AI4Science 转向 Science4AI，主张以 Coding/科研驱动的后训练 Scaling 比自然语言预训练更能高效提升智能。围绕 Auto-Research、SciMaster 加速真实理论研究、FrontierScience 评测、BigBang-V1（35B）实证，以及多智能体科研演化与科学软件加速，展示科学后训练如何规模化产出前沿成果。",
+      "tech_points": [
+        {
+          "title": "定位澄清：Auto-Research 包含但不是 AI4AI",
+          "details": [
+            "强调 Auto-Research 覆盖面更广，AI4AI 只是其中组成部分而非全部",
+            "科学后训练目标是让 AI 参与真实理论研究与科研流程，而非仅做模型自改进脚本"
+          ],
+          "metrics": [],
+          "image": "t01-16-00.png",
+          "competitor_insight": "产品叙事上应区分「科研自动化」与「模型自改进」；平台能力要覆盖真实学科工作流，而不只停留在合成数据闭环。"
+        },
+        {
+          "title": "SciMaster：LQCD 真实理论研究小时级加速",
+          "details": [
+            "面向高能物理格点量子色动力学（LQCD），从准 TMD 波函数提取 Collins-Soper kernel",
+            "自动完成拟合、重整化、延拓等多步复杂流程，并由领域专家背书验证",
+            "从工程加速走向驱动科学发现：验证全 b⊥ 联合拟合模型有效性，扩展提取范围"
+          ],
+          "metrics": [
+            "SciMaster 约 6 小时得到原先 1~3 个月严谨计算结果",
+            "Collins-Soper kernel 提取范围扩展至 b⊥=1 fm",
+            "相对传统周期约 120x~360x 加速"
+          ],
+          "image": "t01-18-00.png",
+          "competitor_insight": "垂直科学 Agent 应打通「拟合-重整化-延拓」等学科流水线，并用与专家结果对齐的图线证据证明可信，而不只做文献问答。"
+        },
+        {
+          "title": "FrontierScience：区分奥赛能力与研究能力",
+          "details": [
+            "发布面向物理/化学/生物专家级推理的 FrontierScience Benchmark",
+            "拆分 Olympiad 与 Research 两档：竞赛解题能力上升快，真实研究能力仍显著落后",
+            "提出高质量科学数据四大要求：正确、难度大、规模化、多样化；任务越难，可出题解题的人越少"
+          ],
+          "metrics": [
+            "Olympiad 顶尖约 77.1%",
+            "Research 顶尖约 25.2%",
+            "低端模型 Research 接近 0.4%"
+          ],
+          "image": "t01-22-00.png",
+          "competitor_insight": "科学后训练数据飞轮必须解决「高难度可规模化」供给；仅用竞赛题无法迁移到真实研究任务。"
+        },
+        {
+          "title": "BigBang-V1（35B）：同级领先并逼近更大闭源模型",
+          "details": [
+            "实证 35B 科学后训练模型在多项前沿基准上领先同级",
+            "覆盖 FrontierScience Research、Humanity's Last Exam、BioMysteryBench、PaperBench、MLE-Bench、BrowseComp、SWE-bench Pro 等",
+            "说明专用科学后训练可让中等规模模型逼近更大闭源模型"
+          ],
+          "metrics": [
+            "FrontierScience Research 46.2",
+            "Humanity's Last Exam 47.3",
+            "BioMysteryBench（可解）57.5 /（困难）10.7",
+            "PaperBench Code-Dev 30.7",
+            "MLE-Bench Lite 31.8",
+            "BrowseComp 79.9",
+            "SWE-bench Pro 12.9"
+          ],
+          "image": "t01-24-00.png",
+          "competitor_insight": "在科学/代码垂直域，优先做高质量后训练与评测体系，可能比盲目堆参数更有性价比；应用侧可优先选型 30B~40B 专用模型。"
+        },
+        {
+          "title": "科学软件加速与多智能体科研演化",
+          "details": [
+            "对大规模科学软件任务图谱进行 AI 加速，覆盖多学科软件生态",
+            "多智能体在共享知识库环境中演化协作，自动讨论、更新工作状态并沉淀科研成果",
+            "对外提供 Matrix 等入口，展示持续生长的软件世界与科研记录"
+          ],
+          "metrics": [
+            "对约 200 个科学软件实现约 300 倍加速",
+            "覆盖 2000+ 任务",
+            "产出约 100 篇科研成果",
+            "期间讨论意见 2045、工作记录更新 759、发起讨论 308、状态更新 403"
+          ],
+          "image": "t01-26-00.png",
+          "competitor_insight": "科学 Agent 平台应建设共享知识库 + 多 Agent 演化环境，并把「软件加速」与「论文/结果产出」作为可度量交付物。"
+        }
+      ],
+      "summary_insights": [
+        "科学后训练的价值在于把 AI 嵌入真实理论计算与科研协作，而非停留在通用对话能力。",
+        "用 FrontierScience 等研究级评测牵引数据与训练，才能缩小「会考试」与「会研究」的鸿沟。",
+        "友商可借鉴「中等参数 + 强后训练 + 多 Agent 科研环境」路线，在垂直科学场景形成差异化。"
+      ]
+    },
+    {
+      "id": "05",
+      "folder": "05-li-inference",
+      "title": "Agentic Inference：推理系统的全链路优化",
+      "speaker": "李文鹏",
+      "org": "阿里云智能集团资深技术专家",
+      "overview": "演讲围绕面向 Agent 负载的推理系统全链路优化，提出流量调度层、引擎执行层、全局缓存层三层协同架构，目标覆盖更高命中率、更低 TTFT、更均衡负载、更强弹性与更高安全性。重点展开智能路由、亲和/缓存感知调度、跨区域联邦、服务灰度、PD 分离并行、FlashKV/CacheFS 加速以及 PAI-CC 机密计算。",
+      "tech_points": [
+        {
+          "title": "整体架构：流量调度 · 引擎并行 · 全局 KVCache 三层协同",
+          "details": [
+            "流量调度层：统一 API 入口、亲和优先与 PD 感知寻址、冷配额、HA 兜底重试、灰度/分流/录制回放/联邦",
+            "引擎执行层：全形态 PD 分离、TP/EP/DP 多并行自动感知、兼容 vLLM/SGLang/自定义引擎、实例角色弹性（Normal/Prefill/Decode）",
+            "全局缓存层：DRAM+SSD 安全缓存池、RDMA 毫秒级热 KV、断路/升级不丢缓存、L1/L2/L3 三级命中可视、对引擎透明挂载"
+          ],
+          "metrics": [],
+          "image": "t01-30-00.png",
+          "competitor_insight": "Agent 推理产品应默认三层一体交付：智能路由 + PD/并行感知引擎调度 + 全局 KV；缺少任一层都难稳住长会话 SLO。"
+        },
+        {
+          "title": "智能路由全链路：入口、治理、容错、调度、实例",
+          "details": [
+            "统一 API：兼容 OpenAI/Anthropic/Responses/离线批量/异步任务，存量用户零改造",
+            "流量治理热更新：灰度、分流、无损切流、镜像、录制回放、模型映射",
+            "弹性容错：排队、自动重试、多级兜底、分段超时、过载保护、用户配额",
+            "智能调度：可用性先行、连续性优先（多轮回原实例）、负载再均衡；实例层基于 EAS + vLLM/SGLang + Spot"
+          ],
+          "metrics": [],
+          "image": "t01-32-00.png",
+          "competitor_insight": "网关需原生支持多协议与热更新治理，并把「多轮连续性」作为与负载均衡同级的一等调度目标。"
+        },
+        {
+          "title": "核心调度：亲和优先，均衡兜底",
+          "details": [
+            "Session-Aware（优先级 300）：会话绑定同实例，严格/软两种模式，过载自动熔断兜底",
+            "Cache-Aware（优先级 200）：哈希指纹索引 KV Cache，动态平衡命中率与负载",
+            "Least Token/Request（优先级 0）兜底；并支持 PD 差异化调度与 MoE 场景 DP Rank 感知调度"
+          ],
+          "metrics": [
+            "GLM-4-9B，4 节点 8×8G GPU",
+            "Cache Hit：38.65% → 78.62%",
+            "TTFT -33.3%",
+            "TPS +100%"
+          ],
+          "image": "t01-34-00.png",
+          "competitor_insight": "Agent 高并发场景应把 Session/Cache 感知调度做成可配置优先级策略，实测显示命中率与吞吐可接近翻倍级改善。"
+        },
+        {
+          "title": "跨区域联邦调度：全局单点决策",
+          "details": [
+            "主区域作为唯一调度点维护全局负载视图，成员区域智能路由作透明代理",
+            "本地无 GPU 库存导致扩容失败时，可跨区域按 Instance ID 透明转发",
+            "支持 Watch/List 同步 worker 状态，适配大模型 Spot 弹性库存波动"
+          ],
+          "metrics": [
+            "案例模型 Qwen3-480B（8×GPU Spot）",
+            "覆盖杭州/上海/北京等多区域库存协同"
+          ],
+          "image": "t01-36-00.png",
+          "competitor_insight": "大模型推理应支持跨区域库存联邦，把调度决策集中、执行本地化，以应对单区域 Spot/GPU 短缺。"
+        },
+        {
+          "title": "服务灰度：权重即生命周期，渐进放量",
+          "details": [
+            "四步：全量稳定 → 小流量灰度 → 逐步放量 → 全量切换",
+            "可用性感知分流：权重只在存活实例间分配，下线自动重分摊",
+            "灰度失败自动回稳；并深度适配 PD 架构配对完整性校验"
+          ],
+          "metrics": [
+            "典型放量节点：10% → 50% → 100%"
+          ],
+          "image": "t01-38-00.png",
+          "competitor_insight": "模型发布必须把灰度做成可用性感知与自动回滚能力，并在 PD 分离部署下校验 Prefill/Decode 配对完整性。"
+        },
+        {
+          "title": "推理引擎：三种 PD 分离与并行感知调度",
+          "details": [
+            "模式一 Prefill 代理、模式二网关调度、模式三 Decode 主导，统一兼容社区与自定义实现",
+            "智能路由自动识别 Prefill/Decode 角色与 TP 或 EP+DP 并行形态",
+            "Prefill 偏算力密集走大 TP 副本；Decode 偏显存密集走多机 EP+DP，并做 DP Rank Balance"
+          ],
+          "metrics": [],
+          "image": "t01-40-00.png",
+          "competitor_insight": "PD 分离不能只支持一种社区方案；路由层需并行模式感知并为 Decode 侧做细粒度 DP Rank 均衡。"
+        },
+        {
+          "title": "FlashKV / CacheFS / PAI-CC：缓存、分发与机密安全",
+          "details": [
+            "FlashKV：独立部署两层全局 KV（DRAM+SSD），查询定位→SSD 预取到 DRAM→RDMA 零拷贝回引擎，解决弹性/宕机/升级丢本地缓存问题",
+            "CacheFS+CacheRoot：中心化缓存 + 无中心 Meta 的对称 P2P 分块传输，模型加载从数十分钟到秒级",
+            "PAI-CC：TEE 内解密加载与 vLLM 推理，远程证明后放行密钥，端到端密文传输，云侧管理员也不可见明文"
+          ],
+          "metrics": [
+            "FlashKV：本地命中 78.62% → 全局 94.32%（+15.7pp）",
+            "TTFT -25%",
+            "TPS +40%",
+            "模型分发：数十分钟 → 秒级"
+          ],
+          "image": "t01-42-00.png",
+          "competitor_insight": "要把全局 KV、P2P 模型分发与可验证机密计算一起产品化，才能同时满足 Agent 性能、弹性扩缩与企业数据安全要求。"
+        }
+      ],
+      "summary_insights": [
+        "Agentic Inference 的关键是会话/缓存亲和调度 + 全局 KV + PD/并行感知，而不是单点引擎调优。",
+        "跨区域联邦、可用性感知灰度与秒级模型分发，决定大模型服务在库存波动下的弹性与发布安全。",
+        "企业场景还需把机密计算（可验证安全）纳入默认能力，完成性能与合规的双目标。"
+      ]
+    }
+  ]
+}
