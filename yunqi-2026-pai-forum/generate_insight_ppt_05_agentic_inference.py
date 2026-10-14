@@ -137,14 +137,15 @@ def add_page1(prs):
     jy = Inches(1.28)
     rect(slide, Inches(0.3), jy, Inches(12.7), Inches(0.62), fill=WHITE, line=BORDER, line_w=1)
     textbox(slide, Inches(0.45), jy + Inches(0.06), Inches(12.4), Inches(0.5),
-            "一句话判断：Agentic Inference 将推理从无状态 QPS 服务，重构为「长上下文 + KV 前缀命中 + Token 级流控 + 会话亲和」系统问题；"
-            "PAI 以流量调度 / 引擎执行 / 全局缓存三层协同，并用 Session/Cache-Aware 调度与智能选模同时抬 TTFT/TPS、压综合成本。",
+            "一句话判断：Agent 多轮长上下文下，无状态 QPS 调度保不住前缀命中与 Token 成本；"
+            "PAI 以 Session/Cache-Aware 调度叠加难度分流选模，把 KV 命中率做到约 79%、TTFT 降约 33%、TPS 约翻倍，"
+            "并用 Auto 选模在质量提升同时把成本指数压到约 35%。",
             size=11, bold=True, color=DARK)
 
     cards = [
         (
             "01  Agentic 负载四特征",
-            "技术启示：调度目标函数切到 Session×KV命中×Token成本",
+            "技术启示：调度 SLO 要从实例 QPS，切到 Session 命中与 Token 成本",
             [
                 "• 长上下文：百→数万 Token；4K 请求 KV 可超 200MB",
                 "• KV 高命中：多轮前缀重叠，命中率决定 TTFT/吞吐",
@@ -154,7 +155,7 @@ def add_page1(prs):
         ),
         (
             "02  三层架构 × 五层路由",
-            "技术启示：控制面五层能力与执行/缓存面必须同代交付",
+            "技术启示：调度、执行、全局 KV 必须同代交付，单点引擎优化不够",
             [
                 "• 调度层：统一 API、热更新治理、容错、智能择址、实例角色",
                 "• 执行层：全形态 PD、TP/EP/DP 感知、vLLM/SGLang/自定义",
@@ -164,12 +165,12 @@ def add_page1(prs):
         ),
         (
             "03  亲和调度 + 智能选模",
-            "技术启示：策略级联提命中，难度分流做质量-成本帕累托",
+            "技术启示：先保会话/前缀命中，再用难度分流固化质量-成本边界",
             [
                 "• Session-Aware(300)：strict/soft，过载熔断回退",
                 "• Cache-Aware(200)：块哈希索引；Least-Token(0) 兜底",
                 "• PD/DP Rank 差异化：P 追前缀，D 追负载，MoE 防局部过热",
-                "• Auto 选模 L1/L2/L3：客户端写 auto，无实例自动切候选",
+                "• Auto 选模 L1/L2/L3：客户端写 auto，网关实例自动切候选",
             ],
         ),
     ]
@@ -185,17 +186,19 @@ def add_page1(prs):
             ("选模成本指数", "纯L3→Auto", "100→35.1(-65%)"),
             ("流量承接", "L1+L2 占比", "85%+"),
         ],
-        Inches(4.88),
+        Inches(4.78),
     )
 
-    fy = Inches(6.32)
+    fy = Inches(6.18)
     rect(slide, 0, fy, W, H - fy, fill=WHITE, line=None)
-    textbox(slide, Inches(0.35), fy + Inches(0.06), Inches(12.6), Inches(0.55),
-            "技术启示：把 Session 亲和、KV 命中率、TPM/Token 配额写入调度 SLO；"
-            "用「五层路由 + PD/并行感知引擎 + 全局 KV」替代单点算子优化；"
-            "用难度分流选模固化质量-成本帕累托，让旗舰模型只承接难题流量。",
+    textbox(slide, Inches(0.35), fy + Inches(0.05), Inches(12.6), Inches(0.72),
+            "技术启示：Agent 多轮负载下，发布准入与弹性观测不能只看实例 QPS/利用率，"
+            "还需把 Session 亲和成功率、KV 前缀命中率、TPM/Token 配额一并纳入；"
+            "否则只在推理引擎（并行策略、batching）上拿到的 TTFT/TPS 收益，会被请求打散后的前缀未命中吞掉。"
+            "控制面要以 Session→Cache→Least-Token 策略级联择址，并与 PD/并行感知执行面、全局 KV 同代交付；"
+            "选模侧用难度分流，让旗舰模型只承接难题流量。",
             size=11, bold=True, color=DARK)
-    textbox(slide, Inches(0.35), fy + Inches(0.58), Inches(12.6), Inches(0.26),
+    textbox(slide, Inches(0.35), fy + Inches(0.78), Inches(12.6), Inches(0.24),
             "来源：云栖大会｜阿里云 PAI《Agentic Inference：推理系统的全链路优化》· 覆盖第1–5章",
             size=9, color=MUTED)
 
@@ -215,14 +218,14 @@ def add_page2(prs):
     jy = Inches(1.18)
     rect(slide, Inches(0.3), jy, Inches(12.7), Inches(0.58), fill=WHITE, line=BORDER, line_w=1)
     textbox(slide, Inches(0.45), jy + Inches(0.06), Inches(12.4), Inches(0.48),
-            "一句话判断：在调度与选模之上，PAI 补齐跨 Region 库存联邦、Token/Coding 订阅闸门、可用性感知灰度、"
-            "离线批量错峰、录制回放资产化，以及 FlashKV/CacheFS 与 TEE 可验证安全，形成生产级 Agentic Serving。",
+            "一句话判断：有状态调度之上，PAI 把跨 Region 库存联邦、Token 计量闸门、可用性感知灰度与录制回放做成控制面默认能力，"
+            "再用 FlashKV/CacheFS 把命中率推到约 94%、模型加载压到秒级，并以 TEE 远程证明把安全做成可验证执行。",
             size=11, bold=True, color=DARK)
 
     cards = [
         (
             "04  联邦·观测·流控·灰度",
-            "技术启示：库存、计量、发布必须进入控制面默认能力",
+            "技术启示：库存、计量、发布必须进入控制面，不能只做引擎侧优化",
             [
                 "• 联邦：PRIMARY 全局 Watch；成员区按实例 ID 透明转发",
                 "• 观测：TTFT/TPOT/排队分位 + L1/L2/L3 命中 + 实例画像",
@@ -232,7 +235,7 @@ def add_page2(prs):
         ),
         (
             "05  批量·回放·引擎 PD",
-            "技术启示：流量资产化 + 全形态 PD 统一接入，降低发布与评测成本",
+            "技术启示：真实流量验收 + 全形态 PD 统一接入，才能压住发布风险",
             [
                 "• 批量：≤5万行/200MB；高峰让路、夜间吃尽闲置 GPU",
                 "• 录制回放：字节级保真 + 原节奏；发布前用真实流量验收",
@@ -242,7 +245,7 @@ def add_page2(prs):
         ),
         (
             "06  FlashKV·分发·机密计算",
-            "技术启示：消除弹性税与冷启动税，并把安全升级为可验证执行",
+            "技术启示：缩容后命中与冷启时延，决定弹性是否真能省 GPU",
             [
                 "• FlashKV：引擎只留活跃 KV；DRAM/SSD + RDMA 零拷贝",
                 "• 命中再升：78.62%→94.32%；TTFT -25%；TPS +40%",
@@ -270,9 +273,10 @@ def add_page2(prs):
     fy = Inches(6.28)
     rect(slide, 0, fy, W, H - fy, fill=WHITE, line=None)
     textbox(slide, Inches(0.35), fy + Inches(0.06), Inches(12.6), Inches(0.58),
-            "技术启示：用跨 Region 联邦吃尽 Spot 库存；用四维闸门把 Token 经济写进准入路径；"
-            "用可用性感知灰度与录制回放把发布风险前移；用 FlashKV/CacheFS 消除缩容与加载税；"
-            "用 TEE+远程证明将模型/Prompt 保护从口头承诺升级为硬件背书的可验证执行。",
+            "技术启示：跨 Region 联邦与 Token/Coding 四维闸门要把库存利用率与计量写成准入默认项；"
+            "灰度需可用性感知并校验 PD 配对完整性，发布前用录制回放做真实流量验收。"
+            "弹性侧要把活跃 KV 外置到 DRAM/SSD（FlashKV）并把权重分发做到秒级就绪，"
+            "否则缩容后再扩会重新支付冷启与未命中成本；安全侧以 TEE+远程证明替代口头合规承诺。",
             size=11, bold=True, color=DARK)
     textbox(slide, Inches(0.35), fy + Inches(0.6), Inches(12.6), Inches(0.26),
             "来源：云栖大会｜阿里云 PAI《Agentic Inference：推理系统的全链路优化》· 覆盖第6–15章",
