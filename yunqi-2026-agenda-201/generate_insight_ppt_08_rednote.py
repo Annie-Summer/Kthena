@@ -207,9 +207,9 @@ def main():
         Inches(1.2),
         [
             "技术启示：",
-            "• Serving 发布准入与弹性观测不能只看 TTFT/吞吐，还需把权重分层命中率、冷启就绪时延、NUMA/卡间互联拓扑正确性一并纳入。",
-            "• 否则只在推理引擎（如并行策略、batching）上拿到的时延/吞吐收益，会被慢冷启与拓扑错配吞掉。",
-            "• 编排从固定 P:D 的 Group 原语演进到 Role 级策略约束（Router/P/D/KV 独立扩缩、协同发布、KVCache-aware 扁平选路），并让 Agent RL 的环境快照断点续跑与轨迹托管跑在同一套 Role 编排与弹性控制面上。",
+            "• 发布准入与弹性观测指标集：TTFT/吞吐 + 权重分层命中率 + 冷启就绪时延 + NUMA/卡间互联拓扑正确性，形成可闭环验收。",
+            "• ModelScale 冷温热权重分层（OSS→Mooncake→FlashGPU/P2P）+ InferenceKit 拓扑注入（NUMA/互联），避免仅做引擎并行/batching 时收益被冷启与错配抵消。",
+            "• 编排从 GroupSet 固定 P:D 演进到 RBG Role 级（Router/P/D/KV 独立扩缩、协同发布、KVCache-aware 扁平选路）；Agent RL 环境快照断点续跑与轨迹托管共用同一 Role 控制面。",
         ],
         size=11,
         color=DARK,
