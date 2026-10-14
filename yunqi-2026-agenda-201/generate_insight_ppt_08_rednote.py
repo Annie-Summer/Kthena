@@ -138,17 +138,7 @@ def main():
 
     cards = [
         (
-            "01  Cost/Token 三杠杆",
-            "技术启示：先立经营目标函数，再选型与调参",
-            [
-                "• 分子：GPU 选型、潮汐混部、Spot 降单位成本",
-                "• 分母吞吐：PD 分离、EP/DP、KVCache Offload/Reuse",
-                "• 分母利用率：弹性伸缩、KV 感知路由、数据缓存加速",
-                "• NVIDIA：Cost per token 定义推理 TCO，非单看算力/FLOP",
-            ],
-        ),
-        (
-            "02  Serving Stack 三件套",
+            "01  Serving Stack 三件套",
             "技术启示：路由+权重分发+拓扑注入做成平台默认能力",
             [
                 "• 网关：公平调度+负载/缓存亲和；TTFT -75%、ITL -40%、吞吐 3×",
@@ -158,7 +148,7 @@ def main():
             ],
         ),
         (
-            "03  静态 PD → 动态 RBG",
+            "02  静态 PD → 动态 RBG",
             "技术启示：按性能压力分阶段演进编排，先稳态再弹性",
             [
                 "• 静态 GroupSet：组内 P:D 固定，Gang 成组；原地升级+四级缓存",
@@ -168,21 +158,23 @@ def main():
             ],
         ),
     ]
-    cy, ch, cw, gap = Inches(2.14), Inches(2.68), Inches(4.1), Inches(0.18)
+    cy, ch, gap = Inches(2.14), Inches(2.68), Inches(0.22)
+    n = len(cards)
+    cw = (Inches(12.7) - gap * (n - 1)) / n
     for i, (title, lead, bullets) in enumerate(cards):
         x = Inches(0.3) + i * (cw + gap)
         rect(slide, x, cy, cw, ch, fill=WHITE, line=BORDER, line_w=1)
-        textbox(slide, x + Inches(0.12), cy + Inches(0.08), cw - Inches(0.24), Inches(0.3), title, size=13, bold=True, color=ACCENT)
+        textbox(slide, x + Inches(0.16), cy + Inches(0.1), cw - Inches(0.32), Inches(0.32), title, size=14, bold=True, color=ACCENT)
         multilines(
             slide,
-            x + Inches(0.12),
-            cy + Inches(0.4),
-            cw - Inches(0.24),
-            ch - Inches(0.5),
+            x + Inches(0.16),
+            cy + Inches(0.46),
+            cw - Inches(0.32),
+            ch - Inches(0.56),
             [lead] + bullets,
-            size=10,
+            size=11,
             color=MID,
-            spacing=1,
+            spacing=2,
             bold_first=True,
         )
 
