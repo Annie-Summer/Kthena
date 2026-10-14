@@ -205,10 +205,9 @@ def main():
         fy + Inches(0.08),
         Inches(12.6),
         Inches(0.7),
-        "技术启示：推理平台应以 Cost/Token 为统一验收口径建设 Serving 控制面——"
-        "权重命中率、拓扑正确性与 TTFT/吞吐一并纳入发布准入与弹性闭环；"
-        "编排从固定 P:D 组级稳态演进到 Role 级独立扩缩与 KVCache-aware 选路。"
-        "这是同 SLO 下持续降本，并承接动态 PD 与 Agent RL 的架构前提，应作为下一代 Serving 默认能力规划。",
+        "技术启示：权重命中路径与 NUMA/互联拓扑必须进入与 TTFT/吞吐同级的发布准入与弹性观测；"
+        "编排从固定 P:D 组级原语演进到 Role 级策略约束（独立扩缩、协同发布、KVCache-aware 选路），"
+        "使动态 PD 与 Agent Rollout 复用同一调度语义与状态面。",
         size=12,
         bold=True,
         color=DARK,
