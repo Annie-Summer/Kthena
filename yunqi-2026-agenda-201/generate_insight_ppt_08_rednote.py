@@ -202,20 +202,21 @@ def main():
     textbox(
         slide,
         Inches(0.35),
-        fy + Inches(0.08),
+        fy + Inches(0.06),
         Inches(12.6),
-        Inches(0.7),
-        "技术启示：权重命中路径与 NUMA/互联拓扑必须进入与 TTFT/吞吐同级的发布准入与弹性观测；"
-        "编排从固定 P:D 组级原语演进到 Role 级策略约束（独立扩缩、协同发布、KVCache-aware 选路），"
-        "使动态 PD 与 Agent Rollout 复用同一调度语义与状态面。",
-        size=12,
+        Inches(0.78),
+        "技术启示：将权重分层命中率、冷启就绪时延与 NUMA/卡间互联拓扑正确性，提升到与 TTFT、吞吐同级的发布准入与弹性观测指标，"
+        "避免引擎侧优化被冷启与拓扑错配抵消；编排从固定 P:D 的 Group 原语演进到 Role 级策略约束——"
+        "Router/P/D/KV 等角色独立扩缩与协同发布，叠加 KVCache-aware 扁平选路——"
+        "使动态 PD 弹性与 Agent Rollout 的快照/轨迹状态复用同一调度语义与状态面。",
+        size=11,
         bold=True,
         color=DARK,
     )
     textbox(
         slide,
         Inches(0.35),
-        fy + Inches(0.78),
+        fy + Inches(0.84),
         Inches(12.6),
         Inches(0.24),
         "来源：云栖大会 agendaId=201｜容器服务 × 小红书：大模型推理与 Agent RL · 车漾 / 熊峰",
