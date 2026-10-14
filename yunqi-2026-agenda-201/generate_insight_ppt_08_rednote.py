@@ -205,9 +205,10 @@ def main():
         fy + Inches(0.08),
         Inches(12.6),
         Inches(0.7),
-        "技术启示：推理竞争力已从单引擎调优，转向平台能否系统性改写 Cost/Token——"
-        "冷启与拓扑正确性必须和在线吞吐同一套发布准入，否则引擎侧收益会被基础设施税抵消；"
-        "编排上固定成组只是稳态过渡，把协同从「结构绑死」升级为「角色级策略约束」，才是动态负载与 Agent RL 可共享的执行底盘。",
+        "技术启示：以 Cost/Token = GPU·h ÷ (Throughput × Utilization) 作为 Serving 控制面目标函数后，"
+        "权重命中路径与 NUMA/互联拓扑必须进入与 TTFT/吞吐同级的发布准入与弹性观测，否则引擎侧增益会被冷启与错配放大抵消；"
+        "编排则需从固定 P:D 的组级原语演进到 Role 级策略约束（独立扩缩、协同发布、KVCache-aware 选路），"
+        "使动态 PD 与 Agent Rollout 复用同一调度语义与状态面。",
         size=12,
         bold=True,
         color=DARK,
