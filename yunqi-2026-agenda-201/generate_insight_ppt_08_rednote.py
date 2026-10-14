@@ -158,23 +158,23 @@ def main():
             ],
         ),
     ]
-    cy, ch, gap = Inches(2.14), Inches(2.68), Inches(0.22)
+    cy, ch, gap = Inches(2.14), Inches(2.48), Inches(0.22)
     n = len(cards)
     cw = (Inches(12.7) - gap * (n - 1)) / n
     for i, (title, lead, bullets) in enumerate(cards):
         x = Inches(0.3) + i * (cw + gap)
         rect(slide, x, cy, cw, ch, fill=WHITE, line=BORDER, line_w=1)
-        textbox(slide, x + Inches(0.16), cy + Inches(0.1), cw - Inches(0.32), Inches(0.32), title, size=14, bold=True, color=ACCENT)
+        textbox(slide, x + Inches(0.16), cy + Inches(0.08), cw - Inches(0.32), Inches(0.3), title, size=14, bold=True, color=ACCENT)
         multilines(
             slide,
             x + Inches(0.16),
-            cy + Inches(0.46),
+            cy + Inches(0.4),
             cw - Inches(0.32),
-            ch - Inches(0.56),
+            ch - Inches(0.48),
             [lead] + bullets,
-            size=11,
+            size=10,
             color=MID,
-            spacing=2,
+            spacing=1,
             bold_first=True,
         )
 
@@ -186,38 +186,42 @@ def main():
         ("同 SLO 吞吐", "小红书生产", "2~3×"),
         ("GPU 资源", "小红书生产", "节省 50%"),
     ]
-    my = Inches(4.96)
-    textbox(slide, Inches(0.3), my, Inches(10), Inches(0.24), "关键指标对比与提升", size=12, bold=True, color=DARK)
-    mw, mh, mg = Inches(2.05), Inches(0.92), Inches(0.1)
+    my = Inches(4.72)
+    textbox(slide, Inches(0.3), my, Inches(10), Inches(0.22), "关键指标对比与提升", size=11, bold=True, color=DARK)
+    mw, mh, mg = Inches(2.05), Inches(0.78), Inches(0.1)
     for i, (label, baseline, value) in enumerate(metrics):
         x = Inches(0.3) + i * (mw + mg)
-        y = my + Inches(0.26)
+        y = my + Inches(0.22)
         rect(slide, x, y, mw, mh, fill=WHITE, line=BORDER, line_w=1)
-        textbox(slide, x + Inches(0.08), y + Inches(0.04), mw - Inches(0.14), Inches(0.2), label, size=9, color=MUTED)
-        textbox(slide, x + Inches(0.08), y + Inches(0.24), mw - Inches(0.14), Inches(0.24), baseline, size=9, color=MID)
-        textbox(slide, x + Inches(0.08), y + Inches(0.48), mw - Inches(0.14), Inches(0.36), value, size=13, bold=True, color=ACCENT)
+        textbox(slide, x + Inches(0.08), y + Inches(0.02), mw - Inches(0.14), Inches(0.18), label, size=9, color=MUTED)
+        textbox(slide, x + Inches(0.08), y + Inches(0.2), mw - Inches(0.14), Inches(0.2), baseline, size=9, color=MID)
+        textbox(slide, x + Inches(0.08), y + Inches(0.4), mw - Inches(0.14), Inches(0.32), value, size=12, bold=True, color=ACCENT)
 
-    fy = Inches(6.3)
+    fy = Inches(5.82)
     rect(slide, 0, fy, W, H - fy, fill=WHITE, line=None)
-    textbox(
+    multilines(
         slide,
         Inches(0.35),
-        fy + Inches(0.06),
+        fy + Inches(0.05),
         Inches(12.6),
-        Inches(0.55),
-        "技术启示：以 Cost/Token 统一经营与技术目标；把缓存亲和路由、分层权重分发、拓扑感知注入固化进 Serving Stack；"
-        "按性能压力分阶段演进编排——静态 PD 做成组调度/原地升级/容量防护稳态基座，RBG 做角色解耦与策略协同弹性控制面，"
-        "持续兑现吞吐提升、时延下降与 GPU 利用率改善。",
-        size=11,
-        bold=True,
+        Inches(1.28),
+        [
+            "技术启示：",
+            "• Cost/Token 拆三项落地：分子控 GPU 选型/潮汐混部/Spot；分母用 PD 分离、EP/DP、KVCache Offload/复用抬吞吐，用 KV 感知路由与弹性抬利用率；能力按对公式三项的贡献立项与验收。",
+            "• Serving Stack 固化默认能力：网关公平调度+负载/缓存亲和；ModelScale 通 OSS→Mooncake→FlashGPU→引擎间 P2P（RDMA+GDR），权重分钟→秒级；InferenceKit 以 Webhook→Wrapper→插件注入 NUMA/启动加速，禁静默降级、Summary 可审计。",
+            "• 编排按性能压力分阶段：GroupSet 固定 P:D + Gang + 原地升级/组缓存先稳住发布与冷启；RBG 再把 Router/P/D/Encode/KV 升为独立 Role，按排队/TTFT/TPOT/KV 独立扩缩 + KVCache-Aware 选路；上接快照复用 + Rollout 托管，承接训推一体与 Agent RL。",
+        ],
+        size=10,
         color=DARK,
+        spacing=1,
+        bold_first=True,
     )
     textbox(
         slide,
         Inches(0.35),
-        fy + Inches(0.6),
+        fy + Inches(1.36),
         Inches(12.6),
-        Inches(0.26),
+        Inches(0.22),
         "来源：云栖大会 agendaId=201｜容器服务 × 小红书：大模型推理与 Agent RL · 车漾 / 熊峰",
         size=9,
         color=MUTED,
