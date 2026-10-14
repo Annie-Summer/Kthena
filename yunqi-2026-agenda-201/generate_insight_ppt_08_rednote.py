@@ -207,9 +207,9 @@ def main():
         Inches(1.2),
         [
             "技术启示：",
-            "• 发布准入与弹性观测指标集：TTFT/吞吐 + 权重分层命中率 + 冷启就绪时延 + NUMA/卡间互联拓扑正确性，形成可闭环验收。",
-            "• ModelScale 冷温热权重分层（OSS→Mooncake→FlashGPU/P2P）+ InferenceKit 拓扑注入（NUMA/互联），避免仅做引擎并行/batching 时收益被冷启与错配抵消。",
-            "• 编排从 GroupSet 固定 P:D 演进到 RBG Role 级（Router/P/D/KV 独立扩缩、协同发布、KVCache-aware 扁平选路）；Agent RL 环境快照断点续跑与轨迹托管共用同一 Role 控制面。",
+            "• 发布准入与弹性观测指标集：TTFT、吞吐、权重分层命中率、冷启就绪时延、NUMA 与卡间互联拓扑正确性，形成可闭环验收。",
+            "• ModelScale 冷温热权重分层（先 OSS，再 Mooncake，再到 FlashGPU/P2P），配合 InferenceKit 拓扑注入（NUMA 与互联），避免仅做引擎并行或 batching 时收益被冷启与错配抵消。",
+            "• 编排从 GroupSet 固定 P:D 演进到 RBG Role 级（Router、P、D、KV 独立扩缩、协同发布、KVCache-aware 扁平选路）；Agent RL 环境快照断点续跑与轨迹托管共用同一 Role 控制面。",
         ],
         size=11,
         color=DARK,

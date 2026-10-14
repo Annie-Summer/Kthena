@@ -199,8 +199,8 @@ def add_page1(prs):
         Inches(1.2),
         [
             "技术启示：",
-            "• Session-Aware → Cache-Aware（前缀块哈希）→ Least-Token 三级择址：用会话黏性与 KV 前缀命中替代无状态 QPS 轮询，并把 TPM/Token 配额纳入调度约束。",
-            "• 调度层（五层路由）× 执行层（全形态 PD / TP·EP·DP 感知）× 全局 KV（DRAM+SSD+RDMA）同代交付，L1/L2/L3 命中率进入观测与弹性闭环。",
+            "• 三级择址：先 Session-Aware 会话黏性，再 Cache-Aware 前缀块哈希命中，最后 Least-Token 兜底，替代无状态 QPS 轮询，并把 TPM/Token 配额纳入调度约束。",
+            "• 调度层（五层路由）、执行层（全形态 PD 与 TP/EP/DP 感知）、全局 KV（DRAM、SSD、RDMA）同代交付，L1/L2/L3 命中率进入观测与弹性闭环。",
             "• Auto 选模按 L1/L2/L3 难度分流：网关自动切模，旗舰只承接难题流量，实现质量与 Token 成本的联合优化。",
         ],
         size=11,
@@ -290,9 +290,9 @@ def add_page2(prs):
         Inches(1.24),
         [
             "技术启示：",
-            "• 跨 Region 联邦：PRIMARY 全局 Watch + 按实例 ID 透明转发，统一调度多地域库存；Token/Coding 以时段/并发/RPM·TPM/周期四维闸门写入准入。",
-            "• 可用性感知灰度（权重即生命周期）+ PD 配对完整性校验；发布前用字节级保真录制回放做真实流量验收。",
-            "• FlashKV 将活跃 KV 外置 DRAM/SSD（RDMA 零拷贝），CacheFS/P2P 做秒级权重分发；PAI-CC 以 TEE+远程证明完成可验证执行。",
+            "• 跨 Region 联邦：PRIMARY 全局 Watch，并按实例 ID 透明转发，统一调度多地域库存；Token/Coding 以时段、并发、RPM、TPM、周期四维闸门写入准入。",
+            "• 可用性感知灰度（权重即生命周期），并校验 PD 配对完整性；发布前用字节级保真录制回放做真实流量验收。",
+            "• FlashKV 将活跃 KV 外置到 DRAM 与 SSD（RDMA 零拷贝），CacheFS/P2P 做秒级权重分发；PAI-CC 以 TEE 与远程证明完成可验证执行。",
         ],
         size=11,
         color=DARK,
