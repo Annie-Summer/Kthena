@@ -139,7 +139,7 @@ def main():
     cards = [
         (
             "01  Serving Stack 三件套",
-            "技术启示：路由+权重分发+拓扑注入做成平台默认能力",
+            "技术启示：冷启命中与拓扑正确性，比引擎峰值更能改写 Token 成本",
             [
                 "• 网关：公平调度+负载/缓存亲和；TTFT -75%、ITL -40%、吞吐 3×",
                 "• ModelScale：RDMA+GDR+P2P 分层权重；加载 120s→20s",
@@ -149,7 +149,7 @@ def main():
         ),
         (
             "02  静态 PD → 动态 RBG",
-            "技术启示：按性能压力分阶段演进编排，先稳态再弹性",
+            "技术启示：组级稳态只覆盖生产窗口，Role 级控制面才可规模化弹性",
             [
                 "• 静态 GroupSet：组内 P:D 固定，Gang 成组；原地升级+四级缓存",
                 "• 动态 RBG：Role 一等公民，独立扩缩/发布；KVCache-Aware 选路",
@@ -205,10 +205,10 @@ def main():
         fy + Inches(0.08),
         Inches(12.6),
         Inches(0.7),
-        "技术启示：以 Cost/Token = GPU·h ÷ (Throughput × Utilization) 作为 Serving 控制面目标函数后，"
-        "权重命中路径与 NUMA/互联拓扑必须进入与 TTFT/吞吐同级的发布准入与弹性观测，否则引擎侧增益会被冷启与错配放大抵消；"
-        "编排则需从固定 P:D 的组级原语演进到 Role 级策略约束（独立扩缩、协同发布、KVCache-aware 选路），"
-        "使动态 PD 与 Agent Rollout 复用同一调度语义与状态面。",
+        "技术启示：推理平台应以 Cost/Token 为统一验收口径建设 Serving 控制面——"
+        "权重命中率、拓扑正确性与 TTFT/吞吐一并纳入发布准入与弹性闭环；"
+        "编排从固定 P:D 组级稳态演进到 Role 级独立扩缩与 KVCache-aware 选路。"
+        "这是同 SLO 下持续降本，并承接动态 PD 与 Agent RL 的架构前提，应作为下一代 Serving 默认能力规划。",
         size=12,
         bold=True,
         color=DARK,
