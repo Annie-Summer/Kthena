@@ -110,16 +110,16 @@ def add_cards(slide, cards, cy, ch=Inches(2.55)):
         )
 
 
-def add_metrics(slide, metrics, my, title="关键指标对比与提升"):
-    textbox(slide, Inches(0.3), my, Inches(10), Inches(0.24), title, size=12, bold=True, color=DARK)
-    mw, mh, mg = Inches(2.05), Inches(0.95), Inches(0.1)
+def add_metrics(slide, metrics, my, title="关键指标对比与提升", mh=Inches(0.82)):
+    textbox(slide, Inches(0.3), my, Inches(10), Inches(0.22), title, size=11, bold=True, color=DARK)
+    mw, mg = Inches(2.05), Inches(0.1)
     for i, (label, baseline, value) in enumerate(metrics[:6]):
         x = Inches(0.3) + i * (mw + mg)
-        y = my + Inches(0.26)
+        y = my + Inches(0.22)
         rect(slide, x, y, mw, mh, fill=WHITE, line=BORDER, line_w=1)
-        textbox(slide, x + Inches(0.08), y + Inches(0.04), mw - Inches(0.14), Inches(0.2), label, size=9, color=MUTED)
-        textbox(slide, x + Inches(0.08), y + Inches(0.24), mw - Inches(0.14), Inches(0.26), baseline, size=9, color=MID)
-        textbox(slide, x + Inches(0.08), y + Inches(0.5), mw - Inches(0.14), Inches(0.38), value, size=12, bold=True, color=ACCENT)
+        textbox(slide, x + Inches(0.08), y + Inches(0.02), mw - Inches(0.14), Inches(0.18), label, size=9, color=MUTED)
+        textbox(slide, x + Inches(0.08), y + Inches(0.2), mw - Inches(0.14), Inches(0.2), baseline, size=9, color=MID)
+        textbox(slide, x + Inches(0.08), y + Inches(0.4), mw - Inches(0.14), Inches(0.34), value, size=12, bold=True, color=ACCENT)
 
 
 def add_page1(prs):
@@ -186,19 +186,29 @@ def add_page1(prs):
             ("选模成本指数", "纯L3→Auto", "100→35.1(-65%)"),
             ("流量承接", "L1+L2 占比", "85%+"),
         ],
-        Inches(4.78),
+        Inches(4.72),
     )
 
-    fy = Inches(6.18)
+    fy = Inches(5.9)
     rect(slide, 0, fy, W, H - fy, fill=WHITE, line=None)
-    textbox(slide, Inches(0.35), fy + Inches(0.05), Inches(12.6), Inches(0.72),
-            "技术启示：Agent 多轮负载下，发布准入与弹性观测不能只看实例 QPS/利用率，"
-            "还需把 Session 亲和成功率、KV 前缀命中率、TPM/Token 配额一并纳入；"
-            "否则只在推理引擎（并行策略、batching）上拿到的 TTFT/TPS 收益，会被请求打散后的前缀未命中吞掉。"
-            "控制面要以 Session→Cache→Least-Token 策略级联择址，并与 PD/并行感知执行面、全局 KV 同代交付；"
-            "选模侧用难度分流，让旗舰模型只承接难题流量。",
-            size=11, bold=True, color=DARK)
-    textbox(slide, Inches(0.35), fy + Inches(0.78), Inches(12.6), Inches(0.24),
+    multilines(
+        slide,
+        Inches(0.35),
+        fy + Inches(0.04),
+        Inches(12.6),
+        Inches(1.2),
+        [
+            "技术启示：",
+            "• 发布准入与弹性观测不能只看实例 QPS/利用率，还需把 Session 亲和成功率、KV 前缀命中率、TPM/Token 配额一并纳入。",
+            "• 否则只在推理引擎（并行策略、batching）上拿到的 TTFT/TPS 收益，会被请求打散后的前缀未命中吞掉。",
+            "• 控制面以 Session→Cache→Least-Token 策略级联择址，并与 PD/并行感知执行面、全局 KV 同代交付；选模用难度分流，旗舰模型只承接难题流量。",
+        ],
+        size=11,
+        color=DARK,
+        spacing=2,
+        bold_first=True,
+    )
+    textbox(slide, Inches(0.35), fy + Inches(1.22), Inches(12.6), Inches(0.22),
             "来源：云栖大会｜阿里云 PAI《Agentic Inference：推理系统的全链路优化》· 覆盖第1–5章",
             size=9, color=MUTED)
 
@@ -266,19 +276,30 @@ def add_page2(prs):
             ("批量规格", "单任务上限", "5万行 / 200MB"),
             ("安全形态", "承诺式→可验证", "TEE+远程证明"),
         ],
-        Inches(4.82),
+        Inches(4.68),
         title="平台能力关键指标",
     )
 
-    fy = Inches(6.28)
+    fy = Inches(5.86)
     rect(slide, 0, fy, W, H - fy, fill=WHITE, line=None)
-    textbox(slide, Inches(0.35), fy + Inches(0.06), Inches(12.6), Inches(0.58),
-            "技术启示：跨 Region 联邦与 Token/Coding 四维闸门要把库存利用率与计量写成准入默认项；"
-            "灰度需可用性感知并校验 PD 配对完整性，发布前用录制回放做真实流量验收。"
-            "弹性侧要把活跃 KV 外置到 DRAM/SSD（FlashKV）并把权重分发做到秒级就绪，"
-            "否则缩容后再扩会重新支付冷启与未命中成本；安全侧以 TEE+远程证明替代口头合规承诺。",
-            size=11, bold=True, color=DARK)
-    textbox(slide, Inches(0.35), fy + Inches(0.6), Inches(12.6), Inches(0.26),
+    multilines(
+        slide,
+        Inches(0.35),
+        fy + Inches(0.04),
+        Inches(12.6),
+        Inches(1.24),
+        [
+            "技术启示：",
+            "• 跨 Region 联邦与 Token/Coding 四维闸门，要把库存利用率与计量写成准入默认项。",
+            "• 灰度需可用性感知并校验 PD 配对完整性；发布前用录制回放做真实流量验收。",
+            "• 活跃 KV 外置到 DRAM/SSD（FlashKV），权重分发做到秒级就绪，否则缩容后再扩会重付冷启与未命中成本；安全侧以 TEE+远程证明替代口头合规承诺。",
+        ],
+        size=11,
+        color=DARK,
+        spacing=2,
+        bold_first=True,
+    )
+    textbox(slide, Inches(0.35), fy + Inches(1.26), Inches(12.6), Inches(0.22),
             "来源：云栖大会｜阿里云 PAI《Agentic Inference：推理系统的全链路优化》· 覆盖第6–15章",
             size=9, color=MUTED)
 

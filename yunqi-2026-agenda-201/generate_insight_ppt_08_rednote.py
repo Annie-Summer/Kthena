@@ -186,40 +186,42 @@ def main():
         ("同 SLO 吞吐", "小红书生产", "2~3×"),
         ("GPU 资源", "小红书生产", "节省 50%"),
     ]
-    my = Inches(4.96)
-    textbox(slide, Inches(0.3), my, Inches(10), Inches(0.24), "关键指标对比与提升", size=12, bold=True, color=DARK)
-    mw, mh, mg = Inches(2.05), Inches(0.92), Inches(0.1)
+    my = Inches(4.78)
+    textbox(slide, Inches(0.3), my, Inches(10), Inches(0.22), "关键指标对比与提升", size=11, bold=True, color=DARK)
+    mw, mh, mg = Inches(2.05), Inches(0.78), Inches(0.1)
     for i, (label, baseline, value) in enumerate(metrics):
         x = Inches(0.3) + i * (mw + mg)
-        y = my + Inches(0.26)
+        y = my + Inches(0.22)
         rect(slide, x, y, mw, mh, fill=WHITE, line=BORDER, line_w=1)
-        textbox(slide, x + Inches(0.08), y + Inches(0.04), mw - Inches(0.14), Inches(0.2), label, size=9, color=MUTED)
-        textbox(slide, x + Inches(0.08), y + Inches(0.24), mw - Inches(0.14), Inches(0.24), baseline, size=9, color=MID)
-        textbox(slide, x + Inches(0.08), y + Inches(0.48), mw - Inches(0.14), Inches(0.36), value, size=13, bold=True, color=ACCENT)
+        textbox(slide, x + Inches(0.08), y + Inches(0.02), mw - Inches(0.14), Inches(0.18), label, size=9, color=MUTED)
+        textbox(slide, x + Inches(0.08), y + Inches(0.2), mw - Inches(0.14), Inches(0.2), baseline, size=9, color=MID)
+        textbox(slide, x + Inches(0.08), y + Inches(0.4), mw - Inches(0.14), Inches(0.32), value, size=12, bold=True, color=ACCENT)
 
-    fy = Inches(6.3)
+    fy = Inches(5.9)
     rect(slide, 0, fy, W, H - fy, fill=WHITE, line=None)
-    textbox(
+    multilines(
         slide,
         Inches(0.35),
-        fy + Inches(0.06),
+        fy + Inches(0.04),
         Inches(12.6),
-        Inches(0.78),
-        "技术启示：Serving 发布准入与弹性观测不能只看 TTFT/吞吐，还需把权重分层命中率、冷启就绪时延、NUMA/卡间互联拓扑正确性一并纳入，"
-        "否则只在推理引擎（如并行策略、batching）上拿到的时延/吞吐收益，会被慢冷启与拓扑错配吞掉；"
-        "编排上，固定 P:D 的 Group 原语只适合稳态生产窗口，要支撑动态负载需演进到 Role 级策略约束"
-        "（Router/P/D/KV 独立扩缩、协同发布、KVCache-aware 扁平选路），"
-        "并让 Agent RL 的环境快照断点续跑与轨迹托管跑在同一套 Role 编排与弹性控制面上。",
+        Inches(1.2),
+        [
+            "技术启示：",
+            "• Serving 发布准入与弹性观测不能只看 TTFT/吞吐，还需把权重分层命中率、冷启就绪时延、NUMA/卡间互联拓扑正确性一并纳入。",
+            "• 否则只在推理引擎（如并行策略、batching）上拿到的时延/吞吐收益，会被慢冷启与拓扑错配吞掉。",
+            "• 编排从固定 P:D 的 Group 原语演进到 Role 级策略约束（Router/P/D/KV 独立扩缩、协同发布、KVCache-aware 扁平选路），并让 Agent RL 的环境快照断点续跑与轨迹托管跑在同一套 Role 编排与弹性控制面上。",
+        ],
         size=11,
-        bold=True,
         color=DARK,
+        spacing=2,
+        bold_first=True,
     )
     textbox(
         slide,
         Inches(0.35),
-        fy + Inches(0.84),
+        fy + Inches(1.24),
         Inches(12.6),
-        Inches(0.24),
+        Inches(0.22),
         "来源：云栖大会 agendaId=201｜容器服务 × 小红书：大模型推理与 Agent RL · 车漾 / 熊峰",
         size=9,
         color=MUTED,
