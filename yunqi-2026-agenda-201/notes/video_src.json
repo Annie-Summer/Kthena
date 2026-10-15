@@ -1,0 +1,11 @@
+{
+  "duration": 14370.04,
+  "src": "https://fourier.alibaba.com/ts?url=https%3A%2F%2Fvod-yq-aliyun.taobao.com%2Fvod-7651a3%2F60a524d8b76b71f180f5e7f6c5490102%2F65879f74c91e43ad8ca4130e395a53fb-c414574a906f043740c173448f0dd80f-sd.m3u8&token=gksZUasCR4nIe4VlUTx4a3gyK8U9bnP5SiOXntXDCCAi5d_2m1OQBn_s5mb2Tsd65hYcKevy9c_61CZVg6-MkNOX1I-VH_yQNuZ5BOKvq7N7VQ85Wnx-iIxmGDvH3nJi_LXNXOKvmWMImzZPB1y9YbTMmJ-HnLgDmEvi-JJ6HnmMoc0ntBpDmnYMokvHFLpDnCYgL9ApnnAcin2exBpDmIfDmYalqiEeUFqur8BzQzAv7QXMT055YdYiWORE0mAN8FRoVBommMJGHyHxSDqDZaCh-NbrIDTXvBS2QsE-XhYVRGLRfWmNg6ChjEI3OyCvfLLlo9w-RCIFfMYNb7uJbwfdYFIisRpGWsI2fiGZ09S2_UjM8oevb9vDYaXQe2OOYGsH7GPryCSOnZTFJfPBGa6Cje5uOD5vuws9yGNnb_jPzjpH4De3Ko32SppeNJynyWOhuqSIfmgxkFe9LQwtBq3vSppeNJyEkqLTBpR7BAC..&cna=9XlCI5rHUk0CASLiO4MdiXXg&ext=61",
+  "m3u8s": [
+    "https://fourier.alibaba.com/ts?url=https%3A%2F%2Fvod-yq-aliyun.taobao.com%2Fvod-7651a3%2F60a524d8b76b71f180f5e7f6c5490102%2F65879f74c91e43ad8ca4130e395a53fb-c414574a906f043740c173448f0dd80f-sd.m3u8&token=gksZUasCR4nIe4VlUTx4a3gyK8U9bnP5SiOXntXDCCAi5d_2m1OQBn_s5mb2Tsd65hYcKevy9c_61CZVg6-MkNOX1I-VH_yQNuZ5BOKvq7N7VQ85Wnx-iIxmGDvH3nJi_LXNXOKvmWMImzZPB1y9YbTMmJ-HnLgDmEvi-JJ6HnmMoc0ntBpDmnYMokvHFLpDnCYgL9ApnnAcin2exBpDmIfDmYalqiEeUFqur8BzQzAv7QXMT055YdYiWORE0mAN8FRoVBommMJGHyHxSDqDZaCh-NbrIDTXvBS2QsE-XhYVRGLRfWmNg6ChjEI3OyCvfLLlo9w-RCIFfMYNb7uJbwfdYFIisRpGWsI2fiGZ09S2_UjM8oevb9vDYaXQe2OOYGsH7GPryCSOnZTFJfPBGa6Cje5uOD5vuws9yGNnb_jPzjpH4De3Ko32SppeNJynyWOhuqSIfmgxkFe9LQwtBq3vSppeNJyEkqLTBpR7BAC..&cna=9XlCI5rHUk0CASLiO4MdiXXg&ext=61",
+    "https://fourier.taobao.com/ts?url=https%3A%2F%2Fvod-yq-aliyun.taobao.com%2Fvod-7651a3%2F60a524d8b76b71f180f5e7f6c5490102%2F65879f74c91e43ad8ca4130e395a53fb-c414574a906f043740c173448f0dd80f-sd.m3u8&token=BL6-z4nhWNLPy4z2E8JmKUG2BN0A_4J5EI4CM2jHK4H9C1_l0Izyi_rth87HM3qR&cna=9XlCI5rHUk0CASLiO4MdiXXg&ext=0",
+    "https://vod-yq-aliyun.taobao.com/vod-7651a3/60a524d8b76b71f180f5e7f6c5490102/65879f74c91e43ad8ca4130e395a53fb-c414574a906f043740c173448f0dd80f-sd.m3u8",
+    "https://vod-yq-aliyun.taobao.com/vod-7651a3/60a524d8b76b71f180f5e7f6c5490102/65879f74c91e43ad8ca4130e395a53fb-c414574a906f043740c173448f0dd80f-sd.m3u8"
+  ],
+  "vod": "https://vod-yq-aliyun.taobao.com/vod-7651a3/60a524d8b76b71f180f5e7f6c5490102/65879f74c91e43ad8ca4130e395a53fb-c414574a906f043740c173448f0dd80f-sd.m3u8"
+}

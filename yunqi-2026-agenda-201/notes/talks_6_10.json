@@ -1,0 +1,576 @@
+{
+  "talks": [
+    {
+      "id": "06",
+      "folder": "06-zhang-yao-shengshu",
+      "title": "容器智算底座助力生数科技多模态 AI",
+      "speaker": "张凯 / 姚峥",
+      "org": "阿里云容器服务 / 生数科技",
+      "overview": "本场为容器智算底座与生数科技联合实践：ACK 侧给出真武 M890 超节点调度/DRA/可观测/自愈、PD 分离推理套件、异构故障自愈与多模型 GPU 热切换能力；生数侧介绍 Vidu/Motusion 通用世界模型路线，以及基于 ACK Pro + ACS Serverless 的多地域训推调度平台（服务启动 SLO 15 秒、首帧时延可观测），并以高峰弹性、模型切换、GPU 故障与多集群调度四大挑战收束。",
+      "tech_points": [
+        {
+          "title": "ACK 支持真武 M890：拓扑感知 · DRA · 可观测 · 自愈",
+          "details": [
+            "灵骏节点池统一纳管：PoD → ASW 交换域 → 超节点 → 子节点；真武 M890 为 64 PPU 统一互联域，ICN Link 800Gb/s 全互联。",
+            "拓扑感知调度：Binpack + Gang（PodGroup），超节点内按 2/4/8 等分卡选位，同任务 Worker 同超节点亲和。",
+            "DRA · 多 Channel 调度/隔离：任务独立通信 Channel，CDI 注入设备，故障域从整超节点收敛到任务 Channel。",
+            "深度可观测：80+ Prometheus 指标、容器/算子级归因、AI Profiling；超节点秒级感知 ECC/互联/XID，隔离→排水→修复→放回闭环。"
+          ],
+          "metrics": [
+            "64 PPU 统一互联域",
+            "ICN Link 800Gb/s",
+            "80+ 标准 Prometheus 指标",
+            "秒级故障感知"
+          ],
+          "image": "t01-56-00.png",
+          "hcs_insight": "HCS 超节点/AI 集群规划需把拓扑亲和 Gang 调度与 DRA/CDI 多 Channel 隔离做成默认能力，而不是事后人工绑核；同时补齐超节点级秒级自愈（隔离-排水-修复-放回）与算子级可观测，否则万卡级训推 Goodput 无法对标。"
+        },
+        {
+          "title": "ACK AI 推理套件 + 真武 M890：PD 分离与前缀感知路由",
+          "details": [
+            "RBG 角色编排：Segment 内 2P:1D 亲和，段内 KV Cache 直传；P/D/Router 独立弹性，P:D 配比可在线自适应；Gang 原子启停。",
+            "ACK 推理网关：最长前缀优先、跨实例共享、KV 分层加载；负载感知队列深度/KV 占用/活跃请求，权衡命中收益与等待成本。",
+            "指标驱动扩缩：Prefill 看队列等待与 TTFT；Decode 看 batch/TPOT/KV 占用；预置 Token 吞吐、TTFT、端到端时延、KV 命中率看板。"
+          ],
+          "metrics": [
+            "服务启动：34 分钟 → 2 分 20 秒（节点预热）",
+            "KV Cache 命中率：40% → 90%",
+            "同资源吞吐约 3x（相对开源）",
+            "TTFT 下降约 75%（Qwen3.8-Max FP4）"
+          ],
+          "image": "t01-58-00.png",
+          "hcs_insight": "HCS 推理产品应把 PD 分离 + Session/前缀感知路由做成一等公民，对外暴露 KV 命中率/TTFT/会话 SLO；超节点场景还需 Segment 拓扑亲和与 P/D 独立弹性，避免只卖单机吞吐。"
+        },
+        {
+          "title": "ACK 异构算力故障自愈：以 Goodput 为目标",
+          "details": [
+            "五层架构：信源（ECS/灵骏/超节点 CMS、GPU Xid/ECC、Kubelet）→ 检测转换（统一故障语义、主动探测）→ 可视化告警 → 编排授权（RepairPlan、分级授权、限流熔断）→ 执行（卡/机隔离、排水、修复、回池）。",
+            "主动探测：GPU 健康、GEMM、单机/跨机 NCCL 带宽；修复后复检再入池。",
+            "原生 K8s Condition 映射，业务零改代码；覆盖 ECS/EGS/灵骏/超节点；支持卡级隔离。客户实践含生数科技。"
+          ],
+          "metrics": [
+            "目标指标：Goodput（有效算力时长比例）",
+            "卡级隔离：单坏卡不废整机",
+            "客户实践：生数科技 / 苏度科技"
+          ],
+          "image": "t02-00-00.png",
+          "hcs_insight": "HCS 应将 Goodput 纳入 AI 集群运维 KPI，并把多源硬件事件统一映射为 K8s Condition；必须具备主动探测（NCCL/GEMM）与 RepairPlan 限流熔断，防止自愈雪崩抽干节点池。"
+        },
+        {
+          "title": "多模型 on GPU 热切换：MaaS 长尾模型秒级切换",
+          "details": [
+            "做法：模型权重驻留 + 网关智能路由 + 卡内秒级切换 + GPU 进程/卡零重启；请求调度与 GPU 进程状态协同，保证推理不中断。",
+            "三级缓存预热：pin-mem / 本地盘 / CPFS；CUDA Graph 自适应复用；vLLM 虚地址复用与 Pinned-mem pool。",
+            "FMA 调度控制器感知流量与容量；ACK 推理网关 Gateway API + EPP 端点选择；流程：排水 → 卡内切权重 → 网关切流。"
+          ],
+          "metrics": [
+            "8B：0.95s vs 冷启 199s（~210x）",
+            "27B：1.34s vs 298s（~222x）",
+            "72B：1.87s vs 311s（~166x）",
+            "122B：2.30s vs 950s（~413x）",
+            "235B：3.27s vs 801s（~245x）"
+          ],
+          "image": "t02-06-00.png",
+          "hcs_insight": "多模态/MaaS 场景模型种类多、权重巨大，HCS 需交付「权重驻留 + 热切换」能力（秒级、零重启），并与 CPFS/本地缓存/网关协同；否则长尾模型只能独占卡，利用率与成本无法过关。"
+        },
+        {
+          "title": "生数：数字与物理统一的通用世界模型",
+          "details": [
+            "2023 年成立，主张以视听信息训练通用基座世界模型，自研 U-ViT（diffusion-transformer 融合）。",
+            "路线：Vidu（世界生成模型 WGM）与 Motusion（世界动作模型 WAM）经信息解析/动作解构汇入通用世界模型基座。",
+            "目标：对数字/物理世界规律建模、推理、预测与行动，服务 AGI 与机器人等落地。"
+          ],
+          "metrics": [
+            "架构：自研 U-ViT / Diffusion-Transformer",
+            "产品线：Vidu（WGM）+ Motusion（WAM）"
+          ],
+          "image": "t02-14-00.png",
+          "hcs_insight": "多模态视频生成与世界模型客户对显存、卡间互联与长时生成任务容错要求显著高于文本 LLM；HCS 规划应单独定义「生成式多模态」资源规格与工作流编排（多架构模型编排、首帧/出片 SLA），而不是复用纯 LLM Serving 模板。"
+        },
+        {
+          "title": "生数训推调度平台：基础+弹性双池与 15 秒启动 SLO",
+          "details": [
+            "接入层：API 网关 + 任务队列（优先级、租户配额）；调度决策：预测 + 混合调度，基荷走 EGS 常驻池、突发走 ACS Serverless。",
+            "统一控制面：ACS + ACK Pro，北京/上海/乌兰察布多地域；节点池、拓扑感知、故障自愈闭环、统一可观测。",
+            "存储底座：EBS 快照预热、ESSD AutoPL、ACS 镜像缓存；运行时强调首帧时延与出片时长可观测、卡间通信拓扑感知、任务级容错与幂等重试。"
+          ],
+          "metrics": [
+            "服务启动 SLO：15 秒内",
+            "多地域：北京 / 上海 / 乌兰察布",
+            "双池：EGS 基荷 + ACS Serverless 突发"
+          ],
+          "image": "t02-16-00.png",
+          "hcs_insight": "对标生数架构，HCS 应提供「预留池 + Serverless 突发池」混合调度与多 Region 统一控制面；并把镜像/快照预热、首帧时延纳入产品 SLO，支撑 AIGC 高峰与低谷潮汐。"
+        },
+        {
+          "title": "挑战与解法：弹性不足 → 秒级千卡供给",
+          "details": [
+            "挑战：高峰低谷明显、模型架构/种类多且权重巨大、部分 GPU 监控缺陷与故障不可预测、多地域算力与 C/B 端需求差异导致调度复杂。",
+            "解法：负载预测驱动前置扩容；稳态 GPU 节点池 + ECS/ACS 弹性节点池；ACK Pro 统一编排。",
+            "展望方向：训推一体潮汐复用、全球一张算力网、显存级多模型热切换、面向业务 SLO（任务成功率/首帧/队列）的自治运维与长任务断点续传。"
+          ],
+          "metrics": [
+            "秒级千卡级资源快速供给",
+            "服务可用性 99.9%",
+            "硬件故障自愈率 >99%（配套自愈实践）"
+          ],
+          "image": "t02-22-30.png",
+          "hcs_insight": "HCS 多模态客户痛点可直接映射为四条规划项：预测式弹性、权重分发/热切换、GPU 主动健康与多集群 Fleet 调度；长视频生成还需断点续传与跨域重调度，否则单点故障代价过高。"
+        }
+      ],
+      "summary_insights": [
+        "超节点（M890 类）必须配套拓扑 Gang、DRA Channel 隔离与秒级自愈，否则硬件规格无法转化为 Goodput。",
+        "多模态 MaaS 的关键竞争力是「15 秒级启动 + 秒级模型热切换 + 前缀/负载感知推理网关」，而非单卡峰值吞吐。",
+        "基础池 + Serverless 突发池、多地域统一控制面与业务 SLO 驱动自治运维，是生数类客户对 HCS 的可落项对标清单。"
+      ]
+    },
+    {
+      "id": "07",
+      "folder": "07-shen-spatiotemporal",
+      "title": "时空智能 Infra：感-算-决一体化",
+      "speaker": "沈健",
+      "org": "洞察时空 · 副总裁 / 平台技术负责人",
+      "overview": "洞察时空提出时空智能 Infra 的「感-算-决」一体化架构：从 LLM「会说话」跃迁到物理世界模型「懂世界」，以卫星/多源 EO 数据作为 AI 与物理世界对齐的关键反馈入口。基于 ACK 云原生 AI 套件构建卫星任务调度、时空数据湖、算法与预测决策平台，落地气象、新能源功率与电力现货等行业场景，并以 API/MCP/Agent 开放产业生态。",
+      "tech_points": [
+        {
+          "title": "时空智能 Infra：感-算-决一体化定位",
+          "details": [
+            "议题定位：构建感知（卫星/多源数据）—计算（时空数据湖与训练推理）—决策（预测/推演服务）一体化技术架构。",
+            "演讲方为洞察时空平台技术负责人，强调与云栖/容器智算底座协同落地。"
+          ],
+          "metrics": [
+            "架构口号：感 · 算 · 决一体化"
+          ],
+          "image": "t02-30-00.png",
+          "hcs_insight": "HCS 若服务智慧城市/能源/应急类客户，需在容器 AI 平台之上显式规划「时空数据接入 → 训练推理 → 决策服务」闭环产品线，而不是只交付通用 GPU 集群。"
+        },
+        {
+          "title": "从 LLM 到物理世界模型（WM）的能力跃迁",
+          "details": [
+            "对象：LLM 面向人类约定的语言符号；WM 面向客观物理世界。",
+            "求解：LLM 显式化人类规则；WM 探索客观规律（对象、关系、因果、物理约束）。",
+            "能力：LLM 模仿交流与信息处理；WM 模拟世界、推演未来并驱动智能体行动——「LLM 进入信息世界，WM 进入并作用于真实世界」。"
+          ],
+          "metrics": [
+            "跃迁轴：LLM → WM（物理世界模型）"
+          ],
+          "image": "t02-31-30.png",
+          "hcs_insight": "HCS AI 平台规划应区分「语言智能」与「世界模型/物理智能」两套工作负载画像：后者强调时空演化仿真、因果约束与长周期推演算力，调度与存储模型不同于 Chat Serving。"
+        },
+        {
+          "title": "大尺度物理世界模型：不止智驾与具身",
+          "details": [
+            "适用系统特征：可观测状态、时空演化、受物理规律与因果约束。",
+            "尺度演进：微观数据 → 区域中观 → 宏观全域数据上的大尺度物理世界模型。",
+            "应用域覆盖矿产/新能源/油气管网/农业水利/远洋物流/供应链/城市管理/金融保险/出行，以及智驾、具身、海洋渔业等。"
+          ],
+          "metrics": [
+            "13+ 垂直行业域示意覆盖"
+          ],
+          "image": "t02-33-00.png",
+          "hcs_insight": "政企与能源客户是时空智能的主战场；HCS 可按「陆地/大气/海洋」域模型 + 行业应用大模型分层打包，优先打穿灾害预警、碳汇、新能源等已有 SLA 场景。"
+        },
+        {
+          "title": "卫星数据：AI 与物理世界对齐的反馈入口",
+          "details": [
+            "对照 RLHF：人类偏好对齐引爆生成式 AI；物理世界模型需要对齐「AI ↔ 物理世界」。",
+            "机制：物理世界模型预测地球状态 → 高分重访卫星给出 EO 真值 → delta-Reality Feedback → 世界对齐飞轮。",
+            "高频重访星座使「下一帧预测好坏」可客观评判，补齐大尺度动态事件缺少评测标准的缺口。"
+          ],
+          "metrics": [
+            "反馈形态：预测态 vs EO 观测态的 delta"
+          ],
+          "image": "t02-34-30.png",
+          "hcs_insight": "HCS 需规划高频时空流式数据管道（地面站/对象存储/时空索引）与「预测-观测」评测作业模板，把 EO 反馈做成类似 RLHF 的标准化 Reward/Eval 流水线。"
+        },
+        {
+          "title": "卫星数据规模指数增长：10PB → 300PB/年",
+          "details": [
+            "中国对地观测年数据量：2025 约 10PB/年 → 2030 约 300PB/年（约 30x）。",
+            "多源类型：光学、SAR、InSAR、红外、微波等融合，追求任意地点完整、及时影像。",
+            "星座覆盖风云/高分/海洋/陆地及吉林一号、东方慧眼、天目、四维高景、齐鲁、女娲等商业星座。"
+          ],
+          "metrics": [
+            "2025：~10 PB/年",
+            "2030：~300 PB/年（约 30x）"
+          ],
+          "image": "t02-36-00.png",
+          "hcs_insight": "PB→百 PB 级年增量要求 HCS 预置时空对象存储分级、冷热分层与多模态预处理集群；存储与网络规划需按 EO 持续写入而非一次性训练数据集估算。"
+        },
+        {
+          "title": "洞察时空基于 ACK 的技术栈与平台分层",
+          "details": [
+            "场景平台：卫星任务调度、时空数据湖、算法/AI、预测/决策能力平台。",
+            "PaaS on ACK：Skywalking/EFK/Prometheus、MySQL/PG、Neo4j/Milvus、Consul/Istio/Nacos、Spark/PyTorch/Flink/Ray。",
+            "物理层：ECS、裸金属 GPU/PPU、OSS/CPFS、VPC/RDMA；价值主张为多元统一、开源开放、异构算力细粒度调度与弹性。"
+          ],
+          "metrics": [
+            "计算栈：Spark / PyTorch / Flink / Ray",
+            "特色存储：Neo4j + Milvus（图/向量）"
+          ],
+          "image": "t02-40-00.png",
+          "hcs_insight": "时空智能客户栈高度依赖图库+向量库+流批一体；HCS 容器平台应预制 Ray/Flink/Spark 与 Milvus/图数据库运维模板，并打通 RDMA/CPFS 异构加速，降低行业客户自建成本。"
+        },
+        {
+          "title": "行业落地：气象 / 新能源功率 / 电力现货",
+          "details": [
+            "气象：台风路径中长期推演平均位置误差下降约 20–30%；案例显示可提前约 10 天给出核心雨区超精细预测。",
+            "新能源功率：超短期 0–4h（15 分钟更新、3km×3km）、短期 0–72h、中期 0–240h，服务实时调度与日前申报。",
+            "电力现货一体化：方向准确率 >78%，准确度提升 50%，风险识别约 80%。"
+          ],
+          "metrics": [
+            "台风路径误差 ↓ 约 20–30%",
+            "功率预测：3km 网格 / 15 分钟更新（超短期）",
+            "现货方向准确率 >78%；风险识别 ~80%"
+          ],
+          "image": "t02-46-00.png",
+          "hcs_insight": "可用上述指标作为 HCS 时空智能行业方案验收口径；基础设施侧需保障 3km 级、15 分钟级高频推理与批处理混部，并与能源调度系统做专线/专区接入。"
+        }
+      ],
+      "summary_insights": [
+        "时空智能是「数据飞轮 + 世界模型 + 行业决策」组合，HCS 要同时补 EO 数据面、异构训推与行业 SLA 方案包。",
+        "把卫星观测做成物理世界对齐反馈，是区别于通用 LLM 平台的差异化能力。",
+        "开放面上 API + MCP + Agent 三通道，便于政企生态集成，HCS 应同步提供 MCP 网关与专属云落地形态。"
+      ]
+    },
+    {
+      "id": "08",
+      "folder": "08-che-xiong-rednote",
+      "title": "容器服务 × 小红书：大模型推理与 Agent RL",
+      "speaker": "车漾 / 熊峰",
+      "org": "阿里云容器服务 / 小红书",
+      "overview": "阿里云容器服务与小红书联合分享生产级 LLM 推理与 Agent RL 实践：以 Cost per Token 为 Day1 北极星，通过 ACK AI Serving Stack（推理网关、InferenceKit、Mooncake/ModelScale 权重分发、分布式 KV）与小红书侧静态 PD→RBG 多角色编排、动态 PD 弹性及 Agent Sandbox/Rollout 管线，把冷启动、吞吐、发布与 RL 轨迹成本压到生产可接受区间。",
+      "tech_points": [
+        {
+          "title": "Day1 北极星：Cost per Token",
+          "details": [
+            "公式：Cost per Million Tokens = GPU 小时成本 / (吞吐 tokens/s × GPU 利用率)。",
+            "分子降本：GPU 选型、潮汐混部、Spot。",
+            "分母提效：PD 分离、EP/DP 并行、KVCache Offload/复用；利用率侧智能弹性、KVCache 感知路由、数据缓存加速。",
+            "结论：AI Serving Stack 每一项能力最终都作用在降低 Cost per Token。"
+          ],
+          "metrics": [
+            "北极星：Cost per Million Tokens",
+            "三杠杆：GPU 成本 / 吞吐 / 利用率"
+          ],
+          "image": "t02-52-00.png",
+          "hcs_insight": "HCS 推理经营看板应以 Cost/Token（或 Token 毛利）替代单纯卡时售卖；产品路线图按分子（混部/Spot）与分母（PD/KV/弹性）拆分立项，才能与互联网客户同语言对话。"
+        },
+        {
+          "title": "ACK AI Serving Stack：全链路降 Token 成本",
+          "details": [
+            "栈结构：ACK 推理网关 → 模型层 → InferenceKit（Webhook/Python Wrapper/进程内插件三级注入：启动加速、NUMA、投机解码）→ RBG/LWS 负载管理（vLLM/SGLang/TRT-LLM/lm-deploy，TP/PP/EP，PD 分离 + 外置分布式 KV）→ ModelScale 权重缓存（Mooncake RDMA P2P）→ 灵骏/ECS/EGS + eRDMA/CPFS。",
+            "实测相对开源基线显著提升冷启与场景吞吐。"
+          ],
+          "metrics": [
+            "模型加载：120s → 20s（约 6x）",
+            "Agentic Coding 吞吐 2.69x",
+            "RAG 1.44x；长文写作 1.80x"
+          ],
+          "image": "t02-54-00.png",
+          "hcs_insight": "HCS 应对标打造「推理网关 + 引擎注入层 + 权重/KV 分发 + PD 编排」完整 Serving Stack，而不是只封装开源引擎；冷启与场景吞吐需作为发布准入指标。"
+        },
+        {
+          "title": "Fluid ModelScale：RDMA 原生权重分层搬运",
+          "details": [
+            "痛点：TCP/无 GDR/无 P2P/存储带宽不随弹性扩展，导致百 GB–TB 级权重加载拖垮冷启与弹性 SLA。",
+            "方案：冷（OSS）→ 温（Mooncake DRAM/SSD）→ 热（FlashGPU HBM）；RDMA+GDR 直达 GPU、引擎间 P2P、冷温自动预热、元数据就近选源。"
+          ],
+          "metrics": [
+            "目标：权重加载进入秒级时代",
+            "路径：OSS / Mooncake / FlashGPU / P2P"
+          ],
+          "image": "t02-56-00.png",
+          "hcs_insight": "专属云若无 RDMA/GDR 与分布式权重缓存，大模型弹性扩容会卡在分钟级加载；HCS 应把「模型权重面」作为与计算面并列的基础设施能力规划。"
+        },
+        {
+          "title": "Modelet 五链路实测：Scale-to-0 / Scale-Out 秒级就绪",
+          "details": [
+            "五链路：①OSS 冷启 ②引擎间 P2P ③发布到 Mooncake ④从 Mooncake 温启 ⑤从 FlashGPU 驻留池秒切。",
+            "Qwen3-32B-BF16（65GB）与 Qwen3-397B-A17B-FP8（406GB）对比：P2P 与温层相对 OSS 有数量级加速，FlashGPU 驻留约 0.6–1.5s。"
+          ],
+          "metrics": [
+            "32B：OSS 45.84s / P2P 3.40s / Mooncake 6.21s / FlashGPU ≈0.6–1.5s",
+            "397B：OSS 112.83s / P2P 12.42s / Mooncake 19.12s / FlashGPU ≈0.6–1.5s",
+            "P2P 相对 OSS 约 9–13.5x"
+          ],
+          "image": "t02-58-00.png",
+          "hcs_insight": "可用该表作为 HCS 权重分发验收基准：至少打通 P2P 与温层缓存两档；FlashGPU 式多模型驻留是多 Agent/多模型网关的下一阶段能力。"
+        },
+        {
+          "title": "小红书静态 PD：GroupSet + PodGroup 两级编排",
+          "details": [
+            "GroupSet 复用 CloneSet 思路管理 PodGroup 副本与固定 P:D 模板；组间无状态、组内有状态（例 2P:1D）。",
+            "HPA 按组伸缩，组内配比不变；滚动批次与 LifecycleHooks 对齐 CloneSet。",
+            "原地升级：镜像预热前置；同节点仅重启容器；必须重建时用 PodGroupCache 整组回原节点，复用镜像层/权重 Page Cache/CUDA 编译缓存。"
+          ],
+          "metrics": [
+            "编排粒度：PodGroup 为原子单元",
+            "升级耗时：数十分钟 → 数分钟"
+          ],
+          "image": "t03-07-00.png",
+          "hcs_insight": "HCS CCE 需提供「组级」发布与原地升级原语（镜像预热、组缓存回调度），否则 PD 分离在生产发布窗口会被冷启拖垮。"
+        },
+        {
+          "title": "从静态 PD 到 RBG：Role 一等公民编排",
+          "details": [
+            "固定 Group 边界导致弹性粗、KV 路由受限、Prefill 复用差；演进为 Router/Prefill/Decode/Encode/KVTransfer/KV Pool 等 Role 独立编排、发布、扩缩、调度。",
+            "RBG 用策略表达跨角色协同：动态 P:D、maxSkew/partition/maxUnavailable 协同发布、原地升级保身份复用缓存、两级 Gang、KVCache 感知扁平选路、异构跨域部署。"
+          ],
+          "metrics": [
+            "角色：Router / P / D / Encode / KVTransfer / KV Pool",
+            "形态：混部 / 固定 PD / 动态 PD / EPD"
+          ],
+          "image": "t03-11-30.png",
+          "hcs_insight": "HCS 编排层应尽快支持 Role-Based Group（类 RBG）：把协同从「结构绑死」改为「策略约束」，否则无法同时服务固定配比与动态 PD/MoE 新形态。"
+        },
+        {
+          "title": "动态 PD 弹性 + Agent Sandbox/Rollout 管线",
+          "details": [
+            "弹性：传统 GPU 指标 + LLM 负载（排队/KV/TTFT/TPOT）+ SLA Profiling；预测先行、反馈校准；训练分时复用释放推理低谷卡时。",
+            "RBG 动态 PD：P/D 池独立扩缩，Router 按 KV 命中+负载全局选路，Discovery 平面感知上下线。",
+            "Agent RL：一致性检查点（rootfs/存储/进程）+ Trajectory WAL；断点续跑与分支探索；RolloutServer 托管 Env 注入、任务分发与评测/离线训练集回流。"
+          ],
+          "metrics": [
+            "弹性信号：TTFT/TPOT/KV + QPS 画像",
+            "RL：快照断点续跑 + 轨迹 WAL + Rollout 托管"
+          ],
+          "image": "t03-14-30.png",
+          "hcs_insight": "推理与 Agent RL 应共用弹性与沙箱底盘：HCS 需把 LLM 负载指标接入 HPA，并提供带快照/WAL 的 Rollout 托管，降低长轨迹重跑成本，支撑客户 Agent RL 生产化。"
+        }
+      ],
+      "summary_insights": [
+        "Cost/Token 是推理平台经营与技术的共同北极星，Serving Stack 需全链路可归因。",
+        "权重分层（OSS→Mooncake→FlashGPU）与 PD/RBG 编排是互联网大模型生产的两块硬骨头。",
+        "静态组级发布是过渡态，Role 级策略协同 + KV 感知路由 + RL 快照管线才是 Agent 时代基础设施形态。"
+      ]
+    },
+    {
+      "id": "09",
+      "folder": "09-hu-agent-serving",
+      "title": "容器服务 Agent 服务全场景最佳实践",
+      "speaker": "胡光",
+      "org": "阿里云智能集团 · 高级产品专家",
+      "overview": "胡光介绍容器服务 Agent：面向 Kubernetes 的自主智能运维，覆盖 Day0 集群设计到 DayN 自治协同全生命周期。以 Multi-Agent + Plan-Execute/ReAct + Human-in-Loop 行为模式，结合开源 ack-mcp-server 工具集与十年 ACK 领域知识库，实现异常自发现、智能诊断修复与移动端闭环；典型案例闭环约 1 分 42 秒，MTTR 下降约 65%。",
+      "tech_points": [
+        {
+          "title": "智能体自治时代：容器服务 Agent 全场景定位",
+          "details": [
+            "标题主张：智能体自治时代，用智能重塑基础设施运维。",
+            "服务对象为 Kubernetes/ACK 集群全生命周期，而非单一 Chat 助手。"
+          ],
+          "metrics": [
+            "定位：全场景容器运维 Agent"
+          ],
+          "image": "t03-24-30.png",
+          "hcs_insight": "HCS 应把「容器运维 Agent」列为独立产品能力，对标客户超大规模集群运维痛点（稳定/自动/安全/成本），避免只做通用大模型对话入口。"
+        },
+        {
+          "title": "超大规模集群运维四关注点与行业背景",
+          "details": [
+            "稳定：偶发异常处置慢，缺长效降风险机制。",
+            "自动化：减少重复人工，缩短全链路迭代。",
+            "安全：CVE/配置/运行时风险缺统一视角。",
+            "成本：治理周期长，闲置浪费难归因到人；行业侧 66% 组织用 K8s 托管 GenAI，82% 容器用户生产用 K8s，安全事件普遍。"
+          ],
+          "metrics": [
+            "66% 组织用 K8s 托管 GenAI（CNCF 2025）",
+            "82% 容器用户生产部署 K8s",
+            "97% 组织近一年遭遇安全事件（引用调研）"
+          ],
+          "image": "t03-26-00.png",
+          "hcs_insight": "规划输入可直接采用「稳定/自动/安全/成本」四象限作为 HCS 运维 Agent 需求基线；GenAI on K8s 占比上升意味着 Agent 必须懂 GPU/弹性/镜像安全，而不仅是应用 Pod。"
+        },
+        {
+          "title": "容器服务 Agent：自主智能运维架构",
+          "details": [
+            "能力层：自动异常感知（200+ 分析）、规划部署、智能诊断修复、安全治理、7×24 自主运维、集群优化。",
+            "中枢：多智能体协作、任务规划编排、Skills/MCP 可扩展、Routines/Channels、安全护栏与审批、持续自动评测。",
+            "底座：ACK MCP Servers（资源/集群/可观测成本/故障诊断）+ ACK 知识库 + 云资源 MCP/CLI。"
+          ],
+          "metrics": [
+            "200+ 异常分析覆盖",
+            "根因分析准确率 >90%",
+            "任务完成率 >85%",
+            "故障恢复：小时级 → 分钟级"
+          ],
+          "image": "t03-28-00.png",
+          "hcs_insight": "HCS 应建设「MCP 工具集 + 领域知识库 + 护栏审批」三段式运维 Agent；准确率与完成率要可评测可回归，高风险变更必须 Human-in-Loop。"
+        },
+        {
+          "title": "PLAN · SENSE · THINK · ACT 闭环",
+          "details": [
+            "PLAN：辅助架构规划、生成部署模板、推荐容量/规格/弹性策略。",
+            "SENSE：连接指标/日志/事件，定时巡检，自定义 Skills。",
+            "THINK：融合容器领域知识做根因与修复方案，含 AI Profiling。",
+            "ACT：人工确认、ACS 沙箱隔离执行、审计追溯。"
+          ],
+          "metrics": [
+            "执行形态：沙箱隔离 + 人工确认 + 审计"
+          ],
+          "image": "t03-30-00.png",
+          "hcs_insight": "把 ACT 放在沙箱与审批之后，是专属云可落地的关键设计；HCS 应用沙箱执行变更并强制审计，避免 Agent 直连生产控制面。"
+        },
+        {
+          "title": "全生命周期智能纳管：Day0 → DayN",
+          "details": [
+            "Day0 集群设计：按业务生成网络/节点池/控制面模板。",
+            "Day1 应用部署：辅助 YAML 编写与安全/优化建议。",
+            "Day2 日常运维：批量异常检测、远程排障、IM/ChatOps。",
+            "DayN 自治协同：自主运维、Skills 复用、定时任务无人值守。"
+          ],
+          "metrics": [
+            "覆盖：设计 / 部署 / 运维 / 自治四阶段"
+          ],
+          "image": "t03-32-00.png",
+          "hcs_insight": "HCS 运维 Agent 路线图可按 Day0–N 分期交付：先做规划/YAML 助手降低门槛，再做诊断，最后才开放自治变更，匹配政企接受度。"
+        },
+        {
+          "title": "能力全景：MCP、知识库与可观测数据面",
+          "details": [
+            "入口：控制台对话、Agent 任务、自主运维、巡检、外部告警、Skill 仓库、钉钉机器人；API/CLI 即将推出。",
+            "行为模式：Multi-Agent、Plan-Execute、ReAct、Human-in-Loop、RePlan；ack-mcp-server 开源。",
+            "知识：官方文档、工单沉淀、排查思路，覆盖网络/运行时/调度/存储/安全/弹性/GPU/升级/多集群/边缘/计费。",
+            "数据：SysOM、GPU Profiling、Prometheus、事件日志、eBPF Tracing、Kubeskoop 网络观测。"
+          ],
+          "metrics": [
+            "ack-mcp-server 开源",
+            "观测：SysOM + eBPF + GPU Profiling"
+          ],
+          "image": "t03-34-00.png",
+          "hcs_insight": "对标要点：开源/开放 MCP 工具协议 + 深观测（eBPF/内核）喂给 Agent；HCS 应沉淀自有工单/手册为 RAG 知识，否则通用模型诊断准确率不足。"
+        },
+        {
+          "title": "典型场景：钉钉移动端分钟级自治闭环",
+          "details": [
+            "闭环：自主检测 → 钉钉告警 → Agent 根因摘要 → 人工审批 → 自动修复 → 验证并沉淀 Skill。",
+            "全源告警汇聚：ACK 告警中心、K8s 事件、节点/GPU、成本/安全、Webhook；智能去重。",
+            "案例时间线：告警达手机 ≤5s，Agent 诊断 38s，一键审批后总闭环 1m42s。"
+          ],
+          "metrics": [
+            "日均 120+ 告警，触达率 100%",
+            "86% 任务移动端处理",
+            "MTTR ↓65%",
+            "高风险变更 100% 人工确认",
+            "案例闭环 1 分 42 秒"
+          ],
+          "image": "t03-36-00.png",
+          "hcs_insight": "HCS 应打通企业 IM（WeLink/钉钉等）做 ChatOps：告警触达、一键审批、结果回写；用 MTTR 与移动端处理占比作为运维 Agent 成功指标，高风险变更默认人工确认。"
+        }
+      ],
+      "summary_insights": [
+        "容器运维 Agent 是「工具 MCP + 领域知识 + 护栏」工程，不是单纯对话机器人。",
+        "Day0–N 分期与 Human-in-Loop 是政企专属云可接受的落地路径。",
+        "分钟级闭环与 >80% 客户渗透（演讲披露）表明该能力已进入规模化，HCS 需尽快形成可对标方案。"
+      ]
+    },
+    {
+      "id": "10",
+      "folder": "10-zhangdong-langxin",
+      "title": "朗新：基于 Agent Sandbox 的云端 Agent 平台",
+      "speaker": "张栋",
+      "org": "朗新科技集团 · AI4SE 负责人",
+      "overview": "张栋介绍朗新「九功数字分身」云端 Agent 平台：以 Agent Sandbox 为算力运行时，向上构建分身资产层（知识/技能/MCP/记忆）与执行层，并服务研发/运维/运营/业务等企业分身。强调从个人助手模式转向「人围绕数字分身协作」的生产关系；云端 Pod 弹性执行与本地 Pilot 深验证双运行时协同，沉淀组织级资产；生产实践显示 100+ 常驻分身、MicroVM 隔离与休眠恢复等能力。",
+      "tech_points": [
+        {
+          "title": "朗新 AI 时代生产力：Agent Sandbox 云端平台定位",
+          "details": [
+            "议题：朗新 AI 时代生产力——基于 Agent Sandbox 的云端 Agent 平台。",
+            "演讲人负责 AI4SE，面向软件工程与企业生产力重构。"
+          ],
+          "metrics": [
+            "产品定位：云端 Agent 平台 / Agent Sandbox"
+          ],
+          "image": "t03-42-30.png",
+          "hcs_insight": "HCS 可将「行业客户基于栈内 Agent Sandbox 构建数字分身平台」作为标杆场景，输出可复制的 AI4SE/企业分身参考架构，而不仅是卖裸沙箱 API。"
+        },
+        {
+          "title": "九功数字分身：重构 AI 时代生产关系",
+          "details": [
+            "传统模式：以人为中心，职能分工、层级管理，受知识/经验与时间注意力边界约束。",
+            "个人助手模式：Agent 辅助个人，提升效率但不改变岗位与组织关系。",
+            "数字分身模式：九功数字分身成为新生产力核心；人承担规划/审查/验证/决策四类职责，形成新岗位、新组织与新生产关系。"
+          ],
+          "metrics": [
+            "人的四职责：规划 / 审查 / 验证 / 决策"
+          ],
+          "image": "t03-43-00.png",
+          "hcs_insight": "平台设计要从「人用工具」升级为「人监督分身」：HCS Agent 平台需内建审批、审计、结果验证与职责分离，匹配企业治理，而不是无限自治。"
+        },
+        {
+          "title": "九功数字分身技术架构：Sandbox → 执行层 → 企业应用",
+          "details": [
+            "底座 Agent Sandbox：计算/存储/网络，Kubernetes 原生生态。",
+            "Agent 运行时：Agent CLI、Pilot、Pod、工作区。",
+            "分身资产层：Knowledge、Skill、MCP 链接、Memory；执行层任务→上下文→计划→分身→流程→技能→执行→结果→记忆。",
+            "企业应用：研发/运维/运营/业务分身；横切资产配置与安全治理（身份、隔离、审计、配额、合规）。"
+          ],
+          "metrics": [
+            "资产四件套：Knowledge / Skill / MCP / Memory",
+            "目标：更高研发效率 / 更好质量 / 更强组织能力"
+          ],
+          "image": "t03-46-00.png",
+          "hcs_insight": "对标架构应明确 Sandbox 运行时与「分身资产中台」分层；MCP 与 Memory 是企业分身可迁移的关键接口，HCS 需提供统一注册、配额与审计。"
+        },
+        {
+          "title": "云端开发：贯通研发交付并沉淀项目资产",
+          "details": [
+            "三支柱：流程编排（任务拆解→编排→自动执行）、AI 云端开发工作台（统一入口、任务驱动、安全可控）、项目资产（沉淀→复用→进化）。",
+            "全流程：需求输入→方案生成→代码编写→自动测试→编译发布→分支合并→自动部署。"
+          ],
+          "metrics": [
+            "闭环：需求到部署的 Agent 化流水线"
+          ],
+          "image": "t03-49-00.png",
+          "hcs_insight": "HCS DevOps/CodeArts 类产品可与 Agent Sandbox 打通，把「任务驱动工作台 + 资产沉淀」做成 AI4SE 方案，避免沙箱与研效工具两张皮。"
+        },
+        {
+          "title": "研发数字分身：云端与本地协同架构",
+          "details": [
+            "智能分流：中小需求走云端分身自动闭环；大/本地依赖/创新需求走本地 Pilot 快速验证。",
+            "管理面统一：分身配置、模型权限、调度、可观测、资产治理与回传同步。",
+            "云端 Pod 运行时：Pilot Daemon/Router/Harness/Agent Bridge、K8s Pod、PVC/OSS，强调弹性并发与无人值守。",
+            "本地 Pilot：浏览器/桌面/文件系统/IDE/终端/MCP 设备/本地 GPU，秒级验证后经验回流云端共享资产池。"
+          ],
+          "metrics": [
+            "双运行时：Cloud Avatar Pod + Local Pilot",
+            "资产池：知识/记忆/技能/评测/Prompt·MCP 最佳实践"
+          ],
+          "image": "t03-52-00.png",
+          "hcs_insight": "混合云关键能力是「云端规模化执行 + 本地深验证」协同与资产回流；HCS 需支持安全的本地 Pilot 接入与 MCP 设备桥，满足内网代码与硬件外设约束。"
+        },
+        {
+          "title": "工作台实践：数字分身驱动需求开发",
+          "details": [
+            "演示流：数字分身 → 自动完成 → 需求开发 → 演示视频。",
+            "界面呈现任务计划、步骤进度与 Agent 工作区路径，体现人机协同下的计划执行可视化。"
+          ],
+          "metrics": [
+            "交互：任务计划可视化 + Agent 工作区"
+          ],
+          "image": "t03-55-00.png",
+          "hcs_insight": "企业分身产品必须提供可审计的计划/步骤 UI，便于审查与验证职责落地；HCS 方案验收应包含「计划可解释、步骤可回放」。"
+        },
+        {
+          "title": "数字分身的 Agent Sandbox 运行实践",
+          "details": [
+            "运行基础：MicroVM 级安全隔离、快速弹性创建就绪、休眠与状态恢复、全面兼容 K8s 生态。",
+            "弹性策略：按峰扩展、灵活伸缩、多任务类型兼容、支撑长期增长。"
+          ],
+          "metrics": [
+            "100+ 常驻分身",
+            "200+ 动态拉起/销毁",
+            "50+ CPU 使用；200G+ 内存使用"
+          ],
+          "image": "t03-58-00.png",
+          "hcs_insight": "可用「百级常驻 + 动态拉起 + MicroVM 隔离 + 休眠恢复」作为 HCS Agent Sandbox 客户实践验收画像；状态保持对长任务分身尤为关键，需纳入默认能力而非可选插件。"
+        }
+      ],
+      "summary_insights": [
+        "数字分身平台 = Agent Sandbox 运行时 + 资产中台（知识/技能/MCP/记忆）+ 企业治理。",
+        "云端/本地双运行时与资产回流，是政企落地 AI4SE 的现实架构。",
+        "人机职责分离（规划/审查/验证/决策）应写入产品与合规设计，匹配 HCS 专属云客户。"
+      ]
+    }
+  ]
+}
